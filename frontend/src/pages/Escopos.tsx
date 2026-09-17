@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
-import { Plus, Copy, AlertCircle } from 'lucide-react';
-import api from '../api/client';
+import { Plus, Copy, AlertCircle, Download, Loader2 } from 'lucide-react';
+import api, { getBackendPort } from '../api/client';
 import { toast } from 'sonner';
 import EscoposFilter from '../components/Escopos/EscoposFilter';
 import EscoposTable, { type EscopoMensal, type Cargo } from '../components/Escopos/EscoposTable';
@@ -39,6 +39,7 @@ export default function Escopos() {
   const [anoFiltro, setAnoFiltro] = useState('');
   const [mesFiltro, setMesFiltro] = useState('');
   const [fetchTrigger, setFetchTrigger] = useState(0);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Controle de exibição do Modal de Criação
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -189,6 +190,43 @@ export default function Escopos() {
     }
   };
 
+  // Exportar os itens do escopo mais recente para Excel (.xlsx)
+  const handleExportarExcel = async () => {
+    try {
+      setIsExporting(true);
+      const params = new URLSearchParams();
+      if (lojaFiltro) params.append('loja', lojaFiltro);
+      if (buscaLojaInput) params.append('busca_loja', buscaLojaInput);
+
+      const response = await api.get(`/escopos/exportar/?${params.toString()}`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      const dataHoje = new Date().toISOString().slice(0, 10);
+      link.setAttribute('download', `escopos_${dataHoje}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+      toast.success('Planilha de escopos mais recentes exportada com sucesso!');
+    } catch (err) {
+      console.error('Erro ao exportar escopos para Excel:', err);
+      // Fallback via abertura direta no navegador
+      const params = new URLSearchParams();
+      if (lojaFiltro) params.append('loja', lojaFiltro);
+      if (buscaLojaInput) params.append('busca_loja', buscaLojaInput);
+      const fallbackUrl = `http://${window.location.hostname}:${getBackendPort()}/escopos/exportar/?${params.toString()}`;
+      window.open(fallbackUrl, '_blank');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Cabeçalho */}
@@ -198,6 +236,15 @@ export default function Escopos() {
           <p className="text-sm text-neutral-500">Mapeamento operacional de funcionários e rubricas orçadas</p>
         </div>
         <div className="flex flex-wrap gap-2.5">
+          <button
+            onClick={handleExportarExcel}
+            disabled={isExporting}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-lg text-sm font-semibold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Exportar escopos filtrados para Excel (.xlsx)"
+          >
+            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            <span>{isExporting ? 'Exportando...' : 'Exportar Excel'}</span>
+          </button>
           <button
             onClick={handleDuplicarLote}
             className="inline-flex items-center justify-center gap-2 px-4 py-2 border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-lg text-sm font-semibold transition-all shadow-sm cursor-pointer"

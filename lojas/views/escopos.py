@@ -1,11 +1,17 @@
+import datetime
 from datetime import date
 from decimal import Decimal
+from io import BytesIO
 import json
 
 from django.db import IntegrityError, transaction
+from django.db.models import OuterRef, Subquery
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+import pandas as pd
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from unidecode import unidecode
@@ -26,13 +32,10 @@ from .common import parse_int_param, escopo_duplicar_proximo_mes_para_todas_as_l
 
 ESCOPOS_POR_PAGINA = 10
 
-from rest_framework.pagination import PageNumberPagination
 
-@api_view(["GET"])
-@permission_classes([IsAuthenticated, IsAdministrador])
-def escopo_list(request):
+def _filtrar_escopos_queryset(request):
     """
-    Lista e filtra os escopos mensais em formato JSON com paginação nativa do DRF.
+    Aplica os filtros de loja física, busca textual, ano e mês aos escopos mensais.
     """
     loja_id_raw = (request.GET.get("loja") or "").strip()
     lojas_list = []
@@ -67,6 +70,17 @@ def escopo_list(request):
 
     if mes_filtro is not None:
         escopos = escopos.filter(mes=mes_filtro)
+
+    return escopos
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, IsAdministrador])
+def escopo_list(request):
+    """
+    Lista e filtra os escopos mensais em formato JSON com paginação nativa do DRF.
+    """
+    escopos = _filtrar_escopos_queryset(request)
 
     paginator = PageNumberPagination()
     paginator.page_size = ESCOPOS_POR_PAGINA
@@ -334,4 +348,65 @@ def lojas_sem_escopo(request):
     ).order_by("nome_referencia")
     data = [{"id": str(l.id), "nome_referencia": l.nome_referencia} for l in lojas]
     return Response(data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, IsAdministrador])
+def escopo_exportar_excel(request):
+    """
+    Exporta os itens do escopo mais recente de cada loja para uma planilha Excel (.xlsx).
+    Colunas: centro_custo, nome_referencia, cargo, turno, quantidade.
+    """
+    escopos = _filtrar_escopos_queryset(request)
+
+    # Garante que para cada loja seja considerado somente o escopo mais recente
+    sub = (
+        escopos.filter(loja=OuterRef("loja"))
+        .order_by("-ano", "-mes")
+        .values("id")[:1]
+    )
+    escopos = escopos.filter(id=Subquery(sub))
+
+    itens = (
+        ItemEscopoMensal.objects.filter(escopo_mensal__in=escopos)
+        .select_related("escopo_mensal__loja", "cargo")
+        .order_by(
+            "escopo_mensal__loja__nome_referencia",
+            "cargo__nome",
+            "turno",
+        )
+    )
+
+    colunas = ["centro_custo", "nome_referencia", "cargo", "turno", "quantidade"]
+    linhas_excel = []
+    for item in itens:
+        loja = item.escopo_mensal.loja
+        linhas_excel.append({
+            "centro_custo": loja.centro_de_custo if loja else "",
+            "nome_referencia": loja.nome_referencia if loja else "",
+            "cargo": item.cargo.nome if item.cargo else "",
+            "turno": item.turno,
+            "quantidade": item.quantidade,
+        })
+
+    df = pd.DataFrame(linhas_excel, columns=colunas)
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Escopos")
+        worksheet = writer.sheets["Escopos"]
+        for col in worksheet.columns:
+            max_len = max(len(str(cell.value or "")) for cell in col)
+            col_letter = col[0].column_letter
+            worksheet.column_dimensions[col_letter].width = max(max_len + 3, 14)
+
+    buffer.seek(0)
+    data_hoje = datetime.date.today().strftime("%d_%m_%Y")
+    filename = f"escopos_{data_hoje}.xlsx"
+
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
 

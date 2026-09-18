@@ -52,5 +52,6 @@ iniciar_projeto.bat
 *.xlsm
 lojas/fixtures/de_para_verbas.json
 !lojas/fixtures/de_para_verbas.json.example
+scratch/
 
 

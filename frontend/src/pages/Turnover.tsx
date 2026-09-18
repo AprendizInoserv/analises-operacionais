@@ -53,10 +53,10 @@ interface ColaboradorDemitido {
   ferias_vencidas_dias?: number | string | null;
   ferias_proporcionais_dias?: number | string | null;
   ferias_aviso_dias?: number | string | null;
-  loja_gestao_nome: string;
+  loja_nome?: string;
   centro_custo: string;
-  loja_gestao_coordenador: string;
-  loja_gestao_supervisor: string;
+  loja_coordenador?: string;
+  loja_supervisor?: string;
 }
 
 interface LojaTurnoverData {
@@ -1462,10 +1462,10 @@ export default function Turnover() {
                     <td className="p-4 font-semibold text-neutral-850 dark:text-neutral-200">{colab.nome}</td>
                     <td className="p-4">{colab.cargo}</td>
                     <td className="p-4">
-                      <span className="font-semibold block">{colab.loja_gestao_nome || '-'}</span>
+                      <span className="font-semibold block">{colab.loja_nome || '-'}</span>
                       <span className="text-[10px] text-neutral-400 font-medium">{colab.centro_custo || '-'}</span>
                     </td>
-                    <td className="p-4">{colab.loja_gestao_coordenador || '-'}</td>
+                    <td className="p-4">{colab.loja_coordenador || '-'}</td>
                     <td className="p-4 text-center font-bold text-rose-500/90">{formatarData(colab.data_demissao)}</td>
                     <td className="p-4">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 dark:bg-neutral-850 text-neutral-600 dark:text-neutral-350 border border-neutral-200/55 dark:border-neutral-800/80">

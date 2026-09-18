@@ -10,6 +10,7 @@ import {
 } from '../ui/pagination';
 import { formatDate } from '../../utils/formatters';
 import { copyTextToClipboard } from '../../utils/clipboard';
+import { getStatusBadge } from '../../utils/badges';
 
 export interface ColaboradorTermino {
   id: string;
@@ -18,7 +19,7 @@ export interface ColaboradorTermino {
   data_admissao: string;
   termino_1: string;
   termino_2: string;
-  status_gestao: string | null;
+  status: string | null;
   centro_custo: string;
   geovictoria_atualizado_em?: string | null;
   loja_nome: string | null;
@@ -239,7 +240,7 @@ export default function TerminosTable({
               <th className="py-3 px-4 align-middle w-[20%]">RE / Colaborador</th>
               <th className="py-3 px-4 align-middle w-[15%]">Loja (TOTVS)</th>
               <th className="py-3 px-4 align-middle w-[13%]">Coordenador</th>
-              <th className="py-3 px-4 align-middle w-[8%]">Status Gestão</th>
+              <th className="py-3 px-4 align-middle w-[8%]">Situação Folha</th>
               <th
                 onClick={() => setOrdenacao(ordenacao === 'ausencias' ? 'data' : 'ausencias')}
                 className="py-3 px-4 text-center align-middle w-[9%] cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-colors select-none group/col"
@@ -352,8 +353,8 @@ export default function TerminosTable({
                   <td className="py-3 px-4 text-neutral-700 dark:text-neutral-300">
                     {item.colaborador.loja_coordenador || '-'}
                   </td>
-                  <td className="py-3 px-4 text-neutral-700 dark:text-neutral-300">
-                    {item.colaborador.status_gestao || '-'}
+                  <td className="py-3 px-4">
+                    {getStatusBadge(item.colaborador.status || '')}
                   </td>
                   <td className="py-3 px-4 text-center whitespace-nowrap">
                     <span

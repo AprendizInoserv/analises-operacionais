@@ -43,9 +43,9 @@ def sincronizar_ausencias_api(start_date: date, end_date: date, progress_callbac
     if not token:
         raise Exception("Token da GeoVictoria não encontrado. Verifique usuário e senha no .env.")
 
-    # Busca apenas colaboradores que não estão demitidos na gestão e que possuem CPF
+    # Busca apenas colaboradores que não estão demitidos no TOTVS e que possuem CPF
     colaboradores = Colaborador.objects.exclude(
-        status_gestao__icontains="DEMITIDO"
+        status="D"
     ).exclude(
         cpf__isnull=True
     ).exclude(

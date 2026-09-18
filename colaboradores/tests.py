@@ -7,88 +7,71 @@ from django.urls import reverse
 from django.contrib.auth.models import User
 
 from colaboradores.models import Colaborador, ControleTermino
-from colaboradores.services.gestao_importacao import importar_gestao_pessoas
 from colaboradores.view_utils import derive_termino_state
 from lojas.models import Loja
 
 
-class GestaoImportacaoTests(TestCase):
-    def criar_loja(self, nome_referencia, nome_gestao, centro_de_custo):
-        """
-        Cria lojas pequenas para validar a ligação entre o nome da Gestão e o ID real da loja.
-        """
-        return Loja.objects.create(
-            nome_referencia=nome_referencia,
-            nome_gestao=nome_gestao,
-            centro_de_custo=centro_de_custo,
+class DivergenciaPontoGeoVictoriaTests(TestCase):
+    def setUp(self):
+        self.loja_totvs = Loja.objects.create(
+            nome_referencia="LOJA TOTVS",
+            centro_de_custo="100",
             quadro="1",
             uf="SP",
         )
+        self.loja_geo = Loja.objects.create(
+            nome_referencia="LOJA GEO",
+            centro_de_custo="200",
+            quadro="1",
+            uf="SP",
+        )
+        self.loja_dispensada = Loja.objects.create(
+            nome_referencia="LOJA SEDE",
+            centro_de_custo="300",
+            quadro="1",
+            uf="SP",
+            dispensa_divergencia_ponto=True,
+        )
 
-    def criar_planilha_gestao(self, linhas, linhas_lojas=None):
-        """
-        Monta uma planilha em memória para testar a importação sem depender de arquivo manual.
-        """
-        if linhas_lojas is None:
-            linhas_lojas = []
-        arquivo = BytesIO()
-        with pd.ExcelWriter(arquivo, engine="openpyxl") as writer:
-            pd.DataFrame(linhas).to_excel(
-                writer,
-                sheet_name="Relação de funcionários",
-                index=False,
-            )
-            pd.DataFrame(linhas_lojas).to_excel(
-                writer,
-                sheet_name="Relação de lojas",
-                index=False,
-            )
-        arquivo.seek(0)
-        return arquivo
-
-    def test_importacao_referencia_loja_pelo_nome_gestao(self):
-        loja_totvs = self.criar_loja("LOJA TOTVS", "LOJA TOTVS", "100")
-        loja_gestao = self.criar_loja("LOJA GESTAO", "LOJA PLANILHA", "200")
-
+    def test_divergencia_quando_lojas_diferentes(self):
         colaborador = Colaborador.objects.create(
             re="000123",
             nome="Maria Silva",
-            loja=loja_totvs,
+            loja=self.loja_totvs,
+            loja_geo=self.loja_geo,
             centro_custo="100",
             data_admissao=date(2026, 1, 10),
-            status="A",
+            status="",
             cargo="OPERADOR",
         )
-
-        arquivo = self.criar_planilha_gestao(
-            [
-                {
-                    "CÓD. FUNCIONÁRIO": 123,
-                    "FUNÇÃO": "OPERADOR",
-                    "LOJA": " loja planilha ",
-                    "STATUS": "ATIVO",
-                }
-            ],
-            linhas_lojas=[
-                {
-                    "LOJA": "LOJA PLANILHA",
-                    "CNPJ": "12.345.678/0001-90",
-                    "QUADRO CONTRATO": 15,
-                }
-            ]
-        )
-
-        resultado = importar_gestao_pessoas(arquivo)
-        colaborador.refresh_from_db()
-        loja_gestao.refresh_from_db()
-
-        self.assertEqual(resultado["atualizados"], 1)
-        self.assertEqual(resultado["lojas_gestao_encontradas"], 1)
-        self.assertEqual(colaborador.loja_id, loja_totvs.id)
-        self.assertEqual(colaborador.loja_gestao_id, loja_gestao.id)
         self.assertTrue(colaborador.is_divergente)
-        self.assertEqual(loja_gestao.quadro, "15")
-        self.assertEqual(loja_gestao.headcount_real, 1)
+        self.assertTrue(colaborador.loja_geo_divergente)
+
+    def test_sem_divergencia_quando_mesma_loja(self):
+        colaborador = Colaborador.objects.create(
+            re="000124",
+            nome="Joao Silva",
+            loja=self.loja_totvs,
+            loja_geo=self.loja_totvs,
+            centro_custo="100",
+            data_admissao=date(2026, 1, 10),
+            status="",
+            cargo="OPERADOR",
+        )
+        self.assertFalse(colaborador.is_divergente)
+
+    def test_sem_divergencia_quando_dispensada(self):
+        colaborador = Colaborador.objects.create(
+            re="000125",
+            nome="Carlos Apoio",
+            loja=self.loja_dispensada,
+            loja_geo=self.loja_geo,
+            centro_custo="300",
+            data_admissao=date(2026, 1, 10),
+            status="",
+            cargo="SUPERVISOR",
+        )
+        self.assertFalse(colaborador.is_divergente)
 
 
 
@@ -105,7 +88,6 @@ class TerminoStateTests(TestCase):
         """
         self.loja = Loja.objects.create(
             nome_referencia="LOJA TESTE",
-            nome_gestao="LOJA TESTE GESTAO",
             centro_de_custo="100",
             quadro="1",
             uf="SP",
@@ -277,7 +259,6 @@ class TerminoAPITests(TestCase):
         # Criar loja e colaborador para os testes
         self.loja = Loja.objects.create(
             nome_referencia="LOJA SP TESTE",
-            nome_gestao="LOJA SP TESTE",
             centro_de_custo="999",
             quadro="1",
             uf="SP",
@@ -635,11 +616,10 @@ class GeoVictoriaAusenciasSyncTests(TestCase):
             centro_custo="CC1",
             data_admissao=date(2026, 1, 1),
             cpf="11111111111",
-            status="A",
-            status_gestao="ATIVO"
+            status="",
         )
         
-        # Colaborador demitido na gestão (deve ser ignorado na sincronização)
+        # Colaborador demitido no TOTVS (deve ser ignorado na sincronização)
         self.colab_demitido = Colaborador.objects.create(
             re="R2",
             nome="Colaborador Demitido",
@@ -647,8 +627,7 @@ class GeoVictoriaAusenciasSyncTests(TestCase):
             centro_custo="CC1",
             data_admissao=date(2026, 1, 1),
             cpf="22222222222",
-            status="A",
-            status_gestao="DEMITIDO"
+            status="D",
         )
 
     def test_sincronizar_ausencias_api_saves_correct_types_and_days(self):

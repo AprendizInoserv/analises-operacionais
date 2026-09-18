@@ -47,7 +47,7 @@ export default function CadastroLojaModal({
 
   // Inicializa ou limpa formulário dependendo do modo (criar ou editar)
   useEffect(() => {
-    setFormData(loja || { status: 'ATIVA', dispensa_gestao_pessoas: false });
+    setFormData(loja || { status: 'ATIVA', dispensa_divergencia_ponto: false });
     setActiveTab('geral');
     setErrorMsg(null);
   }, [loja]);
@@ -356,7 +356,7 @@ export default function CadastroLojaModal({
       status: formData.status || 'ATIVA',
       centro_de_custo: formData.centro_de_custo || '',
       codigo_loja: formData.codigo_loja ? parseInt(String(formData.codigo_loja)) : null,
-      dispensa_gestao_pessoas: formData.dispensa_gestao_pessoas || false,
+      dispensa_divergencia_ponto: formData.dispensa_divergencia_ponto || false,
 
       cnpj: formData.cnpj || '',
       cep: formData.cep || '',
@@ -372,7 +372,6 @@ export default function CadastroLojaModal({
 
       nome_totvs: formData.nome_totvs || '',
       nome_geovictoria: formData.nome_geovictoria || '',
-      nome_gestao: formData.nome_gestao || '',
       nome_financeiro: formData.nome_financeiro || '',
       nome_findme: formData.nome_findme || '',
       nome_metricas: formData.nome_metricas || '',
@@ -710,13 +709,6 @@ export default function CadastroLojaModal({
               />
 
               <FormField
-                label="Nome Gestão"
-                value={formData.nome_gestao || ''}
-                onChange={(val) => handleChange('nome_gestao', val)}
-                placeholder="Ex: São Paulo"
-              />
-
-              <FormField
                 label="Nome Financeiro"
                 value={formData.nome_financeiro || ''}
                 onChange={(val) => handleChange('nome_financeiro', val)}
@@ -740,16 +732,16 @@ export default function CadastroLojaModal({
               <div className="col-span-2 flex items-center gap-2.5 pt-2">
                 <input
                   type="checkbox"
-                  id="dispensa_gestao"
-                  checked={formData.dispensa_gestao_pessoas || false}
-                  onChange={(e) => handleChange('dispensa_gestao_pessoas', e.target.checked)}
+                  id="dispensa_divergencia_ponto"
+                  checked={formData.dispensa_divergencia_ponto || false}
+                  onChange={(e) => handleChange('dispensa_divergencia_ponto', e.target.checked)}
                   className="rounded border-neutral-200 dark:border-neutral-800 text-primary focus:ring-primary h-4 w-4"
                 />
                 <label
-                  htmlFor="dispensa_gestao"
-                  className="text-sm text-neutral-700 select-none"
+                  htmlFor="dispensa_divergencia_ponto"
+                  className="text-sm text-neutral-700 dark:text-neutral-300 select-none"
                 >
-                  Dispensar esta loja do controle de Gestão de Pessoas
+                  Dispensar esta filial da conferência de divergência de ponto eletrônico (GeoVictoria)
                 </label>
               </div>
             </div>

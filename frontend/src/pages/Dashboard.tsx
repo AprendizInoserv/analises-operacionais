@@ -92,7 +92,7 @@ export default function Dashboard({ permissions }: DashboardProps) {
     },
     {
       title: 'Auditoria de Headcount',
-      description: 'Monitore e compare o quadro planejado de funcionários (escopo) com o headcount real alocado na Gestão de Pessoas.',
+      description: 'Monitore e compare o quadro planejado de funcionários com o headcount real apurado pela folha TOTVS.',
       path: '/headcount',
       icon: Users,
     },

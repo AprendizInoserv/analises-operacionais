@@ -10,7 +10,6 @@ from rest_framework.response import Response
 from usuarios.permissions import IsAdministrador, IsGestaoOrAdministrador
 
 from colaboradores.services.colaborador_importacao import importar_colaboradores_de_texto
-from colaboradores.services.gestao_importacao import importar_gestao_pessoas
 from colaboradores.services.turnover_importacao import importar_turnover_de_texto
 from lojas.services.folha_importacao import importar_folha_de_texto
 from lojas.services.diaria_importacao import importar_diarias_de_texto
@@ -51,7 +50,6 @@ def importacoes(request):
         "message": "Central de Importações pronta para uploads.",
         "endpoints": {
             "colaboradores_sra": "/colaboradores/importar/",
-            "gestao_pessoas": "/colaboradores/importar-gestao/",
             "folha_srd": "/folhas/importar/",
             "diarias": "/diarias/importar/"
         }
@@ -98,42 +96,6 @@ def colaborador_import_async(request):
         mensagem_inicial="Iniciando processamento do arquivo SRA...",
     )
 
-@api_view(["POST"])
-@permission_classes([IsAuthenticated, IsGestaoOrAdministrador])
-def gestao_import_async(request):
-    """
-    Inicia a importação assíncrona da planilha de Gestão de Pessoas (Excel).
-    """
-    arquivo = request.FILES.get("arquivo")
-    if not arquivo:
-        return Response({"success": False, "error": "Nenhum arquivo enviado."}, status=status.HTTP_400_BAD_REQUEST)
-
-    nome = (arquivo.name or "").lower()
-    if not (nome.endswith(".xlsx") or nome.endswith(".xlsm") or nome.endswith(".xls")):
-        return Response({
-            "success": False,
-            "error": "Envie uma planilha Excel válida (.xlsx, .xlsm, .xls)."
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    if request.user.is_authenticated:
-        from django.contrib.admin.models import LogEntry, CHANGE
-        from django.contrib.contenttypes.models import ContentType
-        from colaboradores.models import Colaborador
-        LogEntry.objects.log_action(
-            user_id=request.user.id,
-            content_type_id=ContentType.objects.get_for_model(Colaborador).pk,
-            object_id=0,
-            object_repr="Importação de Gestão de Pessoas",
-            action_flag=CHANGE,
-            change_message=f"Iniciou a importação da planilha de Gestão de Pessoas: {arquivo.name}"
-        )
-
-    return _iniciar_importacao_async(
-        tipo_importacao="gestao",
-        payload={"conteudo": arquivo.read(), "nome": arquivo.name or "gestao.xlsm"},
-        titulo="Progresso da Importacao Gestao",
-        mensagem_inicial="Iniciando processamento da planilha de Gestao...",
-    )
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated, IsGestaoOrAdministrador])
@@ -521,14 +483,7 @@ def _processar_importacao_background(import_id, tipo_importacao):
                 progress_callback=atualizar_progresso,
             )
             mensagem, status_msg = _montar_mensagem_turnover(resultado)
-        elif tipo_importacao == "gestao":
-            arquivo_excel = BytesIO(payload["conteudo"])
-            arquivo_excel.name = payload.get("nome", "gestao.xlsm")
-            resultado = importar_gestao_pessoas(
-                arquivo_excel,
-                progress_callback=atualizar_progresso,
-            )
-            mensagem, status_msg = _montar_mensagem_gestao(resultado)
+
         elif tipo_importacao == "folha":
             resultado = importar_folha_de_texto(
                 payload["conteudo"],
@@ -673,38 +628,6 @@ def _montar_mensagem_sra(resultado):
         return mensagem, "warning"
     return mensagem, "success"
 
-def _montar_mensagem_gestao(resultado):
-    if resultado["total_planilha"] == 0:
-        return "Nenhum colaborador valido encontrado na planilha.", "warning"
-
-    mensagem = (
-        f"Importacao Gestao concluida: {resultado['total_planilha']} processados. "
-        f"{resultado['atualizados']} atualizados, "
-        f"{resultado['sem_alteracao']} sem alteracao. "
-        f"{resultado['lojas_gestao_encontradas']} lojas vinculadas pelo nome da Gestao."
-    )
-
-    if resultado["nao_encontrados"] > 0:
-        mensagem += f" {resultado['nao_encontrados']} nao encontrados no banco."
-    if resultado["lojas_gestao_nao_encontradas"] > 0:
-        mensagem += f" {resultado['lojas_gestao_nao_encontradas']} lojas da Gestao sem correspondencia."
-    if resultado["lojas_gestao_duplicadas"] > 0:
-        mensagem += f" {resultado['lojas_gestao_duplicadas']} nomes de Gestao duplicados no cadastro de lojas."
-
-    alertas = resultado.get("alertas_status_multiplo", [])
-    if alertas:
-        mensagem += f" Atenção: {len(alertas)} colaborador(es) com múltiplos status diferentes na planilha."
-
-    tem_alerta = (
-        resultado["erros"] > 0
-        or resultado["lojas_gestao_nao_encontradas"] > 0
-        or resultado["lojas_gestao_duplicadas"] > 0
-        or len(alertas) > 0
-    )
-    if resultado["erros"] > 0:
-        mensagem += f" {resultado['erros']} erros ignorados."
-
-    return mensagem, "warning" if tem_alerta else "success"
 
 def _montar_mensagem_folha(resultado):
     if resultado["processadas"] == 0:

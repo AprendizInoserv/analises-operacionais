@@ -35,7 +35,6 @@ def store_list(request):
         q_obj = (
             Q(nome_referencia__icontains=search_text) |
             Q(nome_totvs__icontains=search_text) |
-            Q(nome_gestao__icontains=search_text) |
             Q(nome_geovictoria__icontains=search_text)
         )
         stores = stores.filter(q_obj)
@@ -270,7 +269,6 @@ def store_filtro_opcoes(request):
             q_obj = (
                 Q(nome_referencia__icontains=busca_val) |
                 Q(nome_totvs__icontains=busca_val) |
-                Q(nome_gestao__icontains=busca_val) |
                 Q(nome_geovictoria__icontains=busca_val)
             )
             qs = qs.filter(q_obj)

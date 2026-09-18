@@ -16,7 +16,7 @@ export interface Loja {
   status: string;
   centro_de_custo: string;
   codigo_loja: string | null;
-  dispensa_gestao_pessoas: boolean;
+  dispensa_divergencia_ponto: boolean;
   cnpj?: string;
   cep?: string;
   rua?: string;
@@ -32,7 +32,6 @@ export interface Loja {
   supervisor_nome?: string;
   nome_totvs?: string;
   nome_geovictoria?: string;
-  nome_gestao?: string;
   nome_financeiro?: string;
   nome_findme?: string;
   nome_metricas?: string;

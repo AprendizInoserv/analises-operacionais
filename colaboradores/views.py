@@ -1,8 +1,5 @@
 from .view_utils import (
     derive_termino_state,
-    encontrar_grupos_funcao,
-    funcao_esta_divergente,
-    normalizar_funcao_para_comparacao,
 )
 from .views_listas import (
     colaborador_list,
@@ -48,11 +45,8 @@ __all__ = [
     "turnover_filtro_opcoes_api",
     "turnover_exportar_excel",
     "derive_termino_state",
-    "encontrar_grupos_funcao",
     "exportar_pendencias_lojas_geovictoria",
     "exportar_terminos_excel",
-    "funcao_esta_divergente",
-    "normalizar_funcao_para_comparacao",
     "sync_geovictoria",
     "sync_geovictoria_progress",
     "sync_lojas_geovictoria",

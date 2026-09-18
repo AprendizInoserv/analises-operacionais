@@ -55,10 +55,10 @@ def sincronizar_punches_api(start_date: date, end_date: date, progress_callback=
         if cpf_norm:
             colab_map[cpf_norm] = c
 
-    # Mapeamento de Lojas cadastradas por nomes (geovictoria, totvs, gestao e referencia)
+    # Mapeamento de Lojas cadastradas por nomes (geovictoria, totvs e referencia)
     loja_map = {}
     for l in Loja.objects.all():
-        for campo in [l.nome_geovictoria, l.nome_totvs, l.nome_gestao, l.nome_referencia]:
+        for campo in [l.nome_geovictoria, l.nome_totvs, l.nome_referencia]:
             if campo:
                 loja_map[normalizar_nome(campo)] = l
 
@@ -82,7 +82,7 @@ def sincronizar_punches_api(start_date: date, end_date: date, progress_callback=
     # Caso contrário (sincronização geral de ontem), buscamos de todas as lojas.
     colaboradores_queryset = Colaborador.objects.exclude(cpf__isnull=True).exclude(cpf="")
     if loja_id:
-        colaboradores_queryset = colaboradores_queryset.filter(loja_gestao_id=loja_id)
+        colaboradores_queryset = colaboradores_queryset.filter(loja_id=loja_id)
 
     cpfs_list = []
     for c in colaboradores_queryset:
@@ -185,7 +185,7 @@ def sincronizar_punches_api(start_date: date, end_date: date, progress_callback=
             # caso contrário tenta resolver pelo grupo do GeoVictoria)
             loja = None
             if colab:
-                loja = colab.loja_gestao or colab.loja
+                loja = colab.loja
 
             group_desc = p.get("GroupDescription") or ""
             if not loja:

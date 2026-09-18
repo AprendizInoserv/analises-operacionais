@@ -45,7 +45,7 @@ export default function Terminos() {
   const [reFiltro, setReFiltro] = useState('');
   const [nomeFiltro, setNomeFiltro] = useState('');
   const [coordenador, setCoordenador] = useState('');
-  const [statusGestao, setStatusGestao] = useState('');
+  const [statusFiltro, setStatusFiltro] = useState('');
   const [ordenacao, setOrdenacao] = useState('data');
   const [dataFiltro, setDataFiltro] = useState('');
   const [dataFim, setDataFim] = useState('');
@@ -87,7 +87,7 @@ export default function Terminos() {
       re: reFiltro || undefined,
       nome: nomeFiltro || undefined,
       coordenador: coordenador || undefined,
-      status_gestao: statusGestao || undefined,
+      status: statusFiltro || undefined,
       ordenar: ordenacao || undefined,
       data_filtro: dataFiltro || undefined,
       data_fim: dataFim || undefined,
@@ -161,7 +161,6 @@ export default function Terminos() {
       if (reFiltro) params.re = reFiltro;
       if (nomeFiltro) params.nome = nomeFiltro;
       if (coordenador) params.coordenador = coordenador;
-      if (statusGestao) params.status_gestao = statusGestao;
       if (dataFiltro) params.data_filtro = dataFiltro;
       if (dataFim) params.data_fim = dataFim;
 
@@ -221,7 +220,7 @@ export default function Terminos() {
     setReFiltro('');
     setNomeFiltro('');
     setCoordenador('');
-    setStatusGestao('');
+    setStatusFiltro('');
     setOrdenacao('data');
     setDataFiltro('');
     setDataFim('');
@@ -250,7 +249,7 @@ export default function Terminos() {
     if (reFiltro) params.append('re', reFiltro);
     if (nomeFiltro) params.append('nome', nomeFiltro);
     if (coordenador) params.append('coordenador', coordenador);
-    if (statusGestao) params.append('status_gestao', statusGestao);
+    if (statusFiltro) params.append('status', statusFiltro);
     if (dataFiltro) params.append('data_filtro', dataFiltro);
     if (dataFim) params.append('data_fim', dataFim);
     if (etapaFiltro) params.append('etapa', etapaFiltro);
@@ -344,8 +343,8 @@ export default function Terminos() {
         setNomeFiltro={setNomeFiltro}
         coordenador={coordenador}
         setCoordenador={setCoordenador}
-        statusGestao={statusGestao}
-        setStatusGestao={setStatusGestao}
+        statusFiltro={statusFiltro}
+        setStatusFiltro={setStatusFiltro}
         dataFiltro={dataFiltro}
         setDataFiltro={setDataFiltro}
         dataFim={dataFim}

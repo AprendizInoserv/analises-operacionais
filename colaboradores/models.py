@@ -41,17 +41,6 @@ class Colaborador(models.Model):
     termino_1 = models.DateField("Término 1", null=True, blank=True, db_index=True)
     termino_2 = models.DateField("Término 2", null=True, blank=True, db_index=True)
 
-    # Campos vindos da planilha de Gestão de Pessoas
-    funcao_gestao = models.CharField("Função (Gestão)", max_length=255, null=True, blank=True)
-    loja_gestao = models.ForeignKey(
-        Loja,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="colaboradores_loja_gestao",
-        verbose_name="Loja (Gestão)",
-        db_column="loja_gestao",
-    )
     loja_geo = models.ForeignKey(
         Loja,
         on_delete=models.SET_NULL,
@@ -60,7 +49,6 @@ class Colaborador(models.Model):
         related_name="colaboradores_loja_geo",
         verbose_name="Loja (GeoVictoria)",
     )
-    status_gestao = models.CharField("Status (Gestão)", max_length=255, null=True, blank=True, db_index=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -68,33 +56,23 @@ class Colaborador(models.Model):
     @property
     def is_divergente(self):
         """
-        Compara as lojas externas preenchidas contra a loja TOTVS para destacar divergências reais.
+        Compara a loja formal do TOTVS com a loja do ponto eletrônico GeoVictoria.
+        Ignora divergência se a loja possuir a flag de dispensa (ex: apoio volante ou sede).
         """
-        if not self.loja_id:
+        if not self.loja_id or not self.loja_geo_id:
             return False
 
-        if self.loja and self.loja.dispensa_gestao_pessoas:
+        if self.loja and getattr(self.loja, "dispensa_divergencia_ponto", False):
             return False
 
-        return self.loja_gestao_divergente or self.loja_geo_divergente
-
-    @property
-    def loja_gestao_divergente(self):
-        """
-        Evita marcar divergência quando a Gestão está em branco e só compara quando existe ID dos dois lados.
-        """
-        if not self.loja_id or not self.loja_gestao_id:
-            return False
-        return self.loja_id != self.loja_gestao_id
+        return self.loja_id != self.loja_geo_id
 
     @property
     def loja_geo_divergente(self):
         """
-        Evita marcar divergência quando a GeoVictoria está em branco e só compara quando existe ID dos dois lados.
+        Informa se a loja do ponto GeoVictoria diverge da loja formal do TOTVS.
         """
-        if not self.loja_id or not self.loja_geo_id:
-            return False
-        return self.loja_id != self.loja_geo_id
+        return self.is_divergente
 
     class Meta:
         verbose_name = "Colaborador"

@@ -17,7 +17,7 @@ interface DetalhesColaboradorModalProps {
  * Modal de visualização detalhada da Ficha do Colaborador.
  * 
  * Por que existe: Permite auditar todos os dados individuais do auxiliar,
- * comparando as bases do TOTVS vs Planilha de Gestão vs GeoVictoria, e
+ * comparando as bases do TOTVS vs GeoVictoria (relógio de ponto), e
  * monitorando datas de experiência em um pop-up isolado com opção de atribuição de cargo.
  */
 export default function DetalhesColaboradorModal({
@@ -140,7 +140,7 @@ export default function DetalhesColaboradorModal({
           <div className="space-y-3">
             <h4 className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5 border-b border-neutral-200 dark:border-neutral-800 pb-1">
               <Layers className="h-4 w-4" />
-              Comparativo de Lotação & Função
+              Lotação & Ponto Eletrônico
             </h4>
 
             <div className="grid grid-cols-2 gap-4">
@@ -215,61 +215,41 @@ export default function DetalhesColaboradorModal({
                 </div>
               </div>
 
-              {/* Gestão Pessoas */}
-              <div
-                className={`p-3 rounded-lg border space-y-1 ${
-                  colab.loja_gestao_divergente
-                    ? 'bg-red-500/5 border-red-500/20'
-                    : 'bg-neutral-50 dark:bg-neutral-850 border-neutral-200 dark:border-neutral-800'
-                }`}
-              >
-                <span className="block text-[9px] font-bold text-neutral-400 uppercase">
-                  Gestão Pessoas
-                </span>
-                <span className="text-sm font-semibold">
-                  {colab.loja_gestao_nome || 'Em branco'}
-                </span>
-                <span className="block text-[10px] text-neutral-500">
-                  Função: {colab.funcao_gestao || 'Em branco'}
-                </span>
-                <div className="text-[10px] text-neutral-500 pt-1 border-t border-neutral-200/60 dark:border-neutral-750 flex flex-col gap-0.5">
-                  <span>Coord: <strong className="text-neutral-700 dark:text-neutral-300">{colab.loja_gestao_coordenador || '-'}</strong></span>
-                  <span>Superv: <strong className="text-neutral-700 dark:text-neutral-300">{colab.loja_gestao_supervisor || '-'}</strong></span>
-                </div>
-              </div>
-
               {/* GeoVictoria */}
               <div
-                className={`p-3 rounded-lg border space-y-1 ${
+                className={`p-3 rounded-lg border space-y-1.5 ${
                   colab.loja_geo_divergente
-                    ? 'bg-red-500/5 border-red-500/20'
+                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200'
                     : 'bg-neutral-50 dark:bg-neutral-850 border-neutral-200 dark:border-neutral-800'
                 }`}
               >
-                <span className="block text-[9px] font-bold text-neutral-400 uppercase">
-                  GeoVictoria (Relógio Ponto)
+                <div className="flex items-center justify-between">
+                  <span className="block text-[9px] font-bold text-neutral-400 uppercase">
+                    GeoVictoria (Relógio Ponto)
+                  </span>
+                  {colab.loja_geo_divergente && (
+                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                      Divergente
+                    </span>
+                  )}
+                </div>
+                <span className="text-sm font-semibold block">
+                  {colab.loja_geo_nome || 'Sem registros de ponto recente'}
                 </span>
-                <span className="text-sm font-semibold">
-                  {colab.loja_geo_nome || 'Em branco'}
+                <span className="block text-[10px] text-neutral-500">
+                  {colab.loja_geo_divergente
+                    ? 'Local de batida não confere com o cadastro TOTVS.'
+                    : 'Local de batida em conformidade com o cadastro.'}
                 </span>
               </div>
 
               {/* Status do Funcionário */}
-              <div className="p-3 bg-neutral-50 dark:bg-neutral-850 rounded-lg border border-neutral-200 dark:border-neutral-800 space-y-1">
+              <div className="col-span-2 p-3 bg-neutral-50 dark:bg-neutral-850 rounded-lg border border-neutral-200 dark:border-neutral-800 space-y-1">
                 <span className="block text-[9px] font-bold text-neutral-400 uppercase">
-                  Status de Contrato
+                  Status de Contrato (TOTVS)
                 </span>
                 <div className="flex gap-2 items-center">
                   <div>{getStatusBadge(colab.status)}</div>
-                  {colab.status_gestao && (
-                    <div className="text-xs text-neutral-500">
-                      (Gestão:{' '}
-                      <span className="font-semibold">
-                        {colab.status_gestao}
-                      </span>
-                      )
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

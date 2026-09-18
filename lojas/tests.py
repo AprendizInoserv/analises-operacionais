@@ -49,90 +49,79 @@ class HeadcountViewsTests(TestCase):
             status="INATIVA",
         )
 
-        # Cria colaboradores na Gestão de Pessoas para o Atacadão (Deveria contar 3: Ativo, Aviso, Férias)
+        # Cria colaboradores no TOTVS SRA para o Atacadão (Quadro planejado 3: 3 ativos + 1 férias = 4 real, desvio +1)
         Colaborador.objects.create(
             re="1001",
             nome="Jose Ativo Atacadao",
-            loja_gestao=self.loja_atacadao,
+            loja=self.loja_atacadao,
             data_admissao=date(2026, 1, 1),
-            status="A",
-            status_gestao="ATIVO",
+            status="",
             cargo="OPERADOR",
         )
         Colaborador.objects.create(
             re="1002",
-            nome="Maria Aviso Atacadao",
-            loja_gestao=self.loja_atacadao,
+            nome="Maria Ativo 2 Atacadao",
+            loja=self.loja_atacadao,
             data_admissao=date(2026, 1, 1),
-            status="A",
-            status_gestao="AVISO PREVIO",
+            status="",
             cargo="OPERADOR",
         )
         Colaborador.objects.create(
             re="1003",
             nome="Joao Ferias Atacadao",
-            loja_gestao=self.loja_atacadao,
+            loja=self.loja_atacadao,
             data_admissao=date(2026, 1, 1),
-            status="A",
-            status_gestao="EM FÉRIAS",
+            status="F",
             cargo="OPERADOR",
         )
         Colaborador.objects.create(
             re="1004",
+            nome="Carlos Ativo 3 Atacadao",
+            loja=self.loja_atacadao,
+            data_admissao=date(2026, 1, 1),
+            status="",
+            cargo="OPERADOR",
+        )
+        Colaborador.objects.create(
+            re="1005",
             nome="Pedro Demitido Atacadao",
-            loja_gestao=self.loja_atacadao,
+            loja=self.loja_atacadao,
             data_admissao=date(2026, 1, 1),
             status="D",
-            status_gestao="DEMITIDO",
             cargo="OPERADOR",
         )
 
-        # Cria colaboradores na Gestão de Pessoas para o Carrefour (Deveria contar 2: Ativo, Aviso. Férias deve ignorar)
+        # Cria colaboradores no TOTVS SRA para o Carrefour (Quadro planejado 2: 1 ativo = 1 real. Férias ignoradas para Carrefour, desvio -1)
         Colaborador.objects.create(
             re="2001",
             nome="Ana Ativo Carrefour",
-            loja_gestao=self.loja_carrefour,
+            loja=self.loja_carrefour,
             data_admissao=date(2026, 1, 1),
-            status="A",
-            status_gestao="ATIVO",
+            status="",
             cargo="AUXILIAR",
         )
         Colaborador.objects.create(
             re="2002",
-            nome="Lucas Aviso Carrefour",
-            loja_gestao=self.loja_carrefour,
+            nome="Lucas Demitido Carrefour",
+            loja=self.loja_carrefour,
             data_admissao=date(2026, 1, 1),
-            status="A",
-            status_gestao="AVISO",
+            status="D",
             cargo="AUXILIAR",
         )
         Colaborador.objects.create(
             re="2003",
             nome="Rita Ferias Carrefour",
-            loja_gestao=self.loja_carrefour,
+            loja=self.loja_carrefour,
             data_admissao=date(2026, 1, 1),
-            status="A",
-            status_gestao="FÉRIAS",
+            status="F",
             cargo="AUXILIAR",
         )
 
-        # Configura o headcount_real das lojas simulando o resultado da importação da gestão
-        self.loja_atacadao.headcount_real = 3
-        self.loja_atacadao.save()
-        self.loja_carrefour.headcount_real = 2
-        self.loja_carrefour.save()
-
     def test_headcount_analise_consolidado(self):
         # Por que existe: Este teste valida que o endpoint retorna corretamente os KPIs globais,
+        # calculando o headcount_real dinamicamente através do status TOTVS SRA,
         # incluindo o total_excedentes que soma apenas os excedentes individuais de cada loja (desvio > 0)
         # em vez de somar desvios negativos, e a paginação das lojas ativas.
-
-        # Configura o headcount_real das lojas simulando um excedente de +1 no Atacadão
-        # e uma falta de -1 no Carrefour (para verificar que a soma de excedentes dá 1 e não 0).
-        self.loja_atacadao.headcount_real = 4  # Planejado era 3. Desvio = +1
-        self.loja_atacadao.save()
-        self.loja_carrefour.headcount_real = 1  # Planejado era 2. Desvio = -1
-        self.loja_carrefour.save()
 
         # Faz a chamada para a API consolidada (sem filtros de data)
         response = self.client.get("/lojas/headcount/")
@@ -172,25 +161,26 @@ class HeadcountViewsTests(TestCase):
         self.assertEqual(kpis["total_lojas"], 2)
 
     def test_headcount_loja_colaboradores_detail(self):
-        # Valida listagem nominal do Atacadão (deve trazer os 3 válidos: Jose, Joao e Maria que é aviso)
+        # Valida listagem nominal do Atacadão (deve trazer os 4 válidos: Jose, Maria, Joao férias e Carlos)
         url_atacadao = f"/lojas/headcount/{self.loja_atacadao.id}/colaboradores/"
         response_atacadao = self.client.get(url_atacadao)
         self.assertEqual(response_atacadao.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response_atacadao.data), 3)
+        self.assertEqual(len(response_atacadao.data), 4)
 
         nomes_atacadao = [c["nome"] for c in response_atacadao.data]
         self.assertIn("Jose Ativo Atacadao", nomes_atacadao)
+        self.assertIn("Maria Ativo 2 Atacadao", nomes_atacadao)
         self.assertIn("Joao Ferias Atacadao", nomes_atacadao)
-        self.assertIn("Maria Aviso Atacadao", nomes_atacadao)
+        self.assertIn("Carlos Ativo 3 Atacadao", nomes_atacadao)
         self.assertNotIn("Pedro Demitido Atacadao", nomes_atacadao)
 
-        # Valida listagem nominal do Carrefour (deve trazer 2 válidos: Ana e Lucas que é aviso. Rita é férias)
+        # Valida listagem nominal do Carrefour (deve trazer 1 válido: Ana. Lucas é demitido e Rita é férias)
         url_carrefour = f"/lojas/headcount/{self.loja_carrefour.id}/colaboradores/"
         response_carrefour = self.client.get(url_carrefour)
         self.assertEqual(response_carrefour.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response_carrefour.data), 2)
+        self.assertEqual(len(response_carrefour.data), 1)
 
         nomes_carrefour = [c["nome"] for c in response_carrefour.data]
         self.assertIn("Ana Ativo Carrefour", nomes_carrefour)
-        self.assertIn("Lucas Aviso Carrefour", nomes_carrefour)
+        self.assertNotIn("Lucas Demitido Carrefour", nomes_carrefour)
         self.assertNotIn("Rita Ferias Carrefour", nomes_carrefour)

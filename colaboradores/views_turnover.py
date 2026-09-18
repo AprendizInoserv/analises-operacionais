@@ -58,12 +58,12 @@ def turnover_list_api(request):
     # Carrega todos os colaboradores (ativos e inativos)
     colaboradores_base = list(
         Colaborador.objects.exclude(cargo="AUXILIAR ADMINISTRAT")
-        .select_related("loja_gestao", "loja_gestao__coordenador", "loja_gestao__supervisor")
+        .select_related("loja", "loja__coordenador", "loja__supervisor")
     )
 
-    # Executa a resolução do fallback de loja por centro de custo em memória
+    # Executa a resolução de loja por vínculo TOTVS ou fallback de centro de custo
     for c in colaboradores_base:
-        loja_resolvida = c.loja_gestao
+        loja_resolvida = c.loja
         if not loja_resolvida and c.centro_custo:
             loja_resolvida = obter_loja_por_cc(c.centro_custo)
         c.loja_resolvida = loja_resolvida
@@ -449,12 +449,12 @@ def turnover_filtro_opcoes_api(request):
 
     colaboradores_base = list(
         Colaborador.objects.exclude(cargo="AUXILIAR ADMINISTRAT")
-        .select_related("loja_gestao", "loja_gestao__coordenador", "loja_gestao__supervisor")
+        .select_related("loja", "loja__coordenador", "loja__supervisor")
     )
 
-    # Executa a resolução do fallback
+    # Executa a resolução de loja por vínculo TOTVS ou fallback de centro de custo
     for c in colaboradores_base:
-        loja_resolvida = c.loja_gestao
+        loja_resolvida = c.loja
         if not loja_resolvida and c.centro_custo:
             loja_resolvida = obter_loja_por_cc(c.centro_custo)
         c.loja_resolvida = loja_resolvida
@@ -536,11 +536,11 @@ def _filtrar_colaboradores_demitidos(request):
 
     colaboradores_base = list(
         Colaborador.objects.exclude(cargo="AUXILIAR ADMINISTRAT")
-        .select_related("loja_gestao", "loja_gestao__coordenador", "loja_gestao__supervisor")
+        .select_related("loja", "loja__coordenador", "loja__supervisor")
     )
 
     for c in colaboradores_base:
-        loja_resolvida = c.loja_gestao
+        loja_resolvida = c.loja
         if not loja_resolvida and c.centro_custo:
             loja_resolvida = obter_loja_por_cc(c.centro_custo)
         c.loja_resolvida = loja_resolvida

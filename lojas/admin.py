@@ -72,11 +72,11 @@ class LojaAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "Nomes em outros sistemas",
+            "Nomes em outros sistemas e Regras",
             {
                 "fields": (
                     "nome_geovictoria",
-                    "nome_gestao",
+                    "dispensa_divergencia_ponto",
                     "nome_totvs",
                     "nome_financeiro",
                     "nome_findme",

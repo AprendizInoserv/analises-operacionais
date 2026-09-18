@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from .models import Colaborador, ControleTermino, Agendamento, TestePromocao, HistoricoAcaoTeste
-from .view_utils import funcao_esta_divergente
 from lojas.models import Loja
 from lojas.services.folha_constants import normalizar_centro_custo
 
@@ -10,11 +9,6 @@ _MAPA_LOJAS_CACHE = None
 def obter_loja_por_cc(centro_custo):
     """
     Retorna a Loja correspondente ao centro de custo normalizado.
-    
-    Docstring explicativa em português:
-    Esta função busca todas as lojas e mapeia seus centros de custo normalizados para a instância
-    correspondente da Loja (incluindo coordenadores e supervisores). É utilizada como fallback quando
-    um colaborador demitido não possui loja_gestao definida no banco.
     """
     global _MAPA_LOJAS_CACHE
     if _MAPA_LOJAS_CACHE is None:
@@ -29,21 +23,15 @@ def obter_loja_por_cc(centro_custo):
 class ColaboradorSerializer(serializers.ModelSerializer):
     """
     Este serializer existe para formatar as informações dos colaboradores vindos da TOTVS
-    e cruzar com as planilhas da Gestão e do ponto GeoVictoria.
-    Garante o retorno de IDs, CPFs e REs como strings e computa se há divergências
-    entre as bases de dados.
+    e cruzar com as informações de ponto da GeoVictoria.
+    Garante o retorno de IDs, CPFs e REs como strings e computa se há divergências de lotação.
     """
     is_divergente = serializers.ReadOnlyField()
-    loja_gestao_divergente = serializers.ReadOnlyField()
     loja_geo_divergente = serializers.ReadOnlyField()
-    funcao_divergente = serializers.SerializerMethodField()
     
     loja_nome = serializers.SerializerMethodField()
     loja_coordenador = serializers.SerializerMethodField()
     loja_supervisor = serializers.SerializerMethodField()
-    loja_gestao_nome = serializers.SerializerMethodField()
-    loja_gestao_coordenador = serializers.SerializerMethodField()
-    loja_gestao_supervisor = serializers.SerializerMethodField()
     loja_geo_nome = serializers.SerializerMethodField()
     coordenador = serializers.SerializerMethodField()
     supervisor = serializers.SerializerMethodField()
@@ -78,62 +66,22 @@ class ColaboradorSerializer(serializers.ModelSerializer):
 
     def get_coordenador(self, obj):
         """
-        Retorna o coordenador resolvido (TOTVS -> Gestão de Pessoas -> fallback por Centro de Custo).
+        Retorna o coordenador resolvido (TOTVS ou fallback por Centro de Custo).
         """
         if obj.loja and obj.loja.coordenador:
             return obj.loja.coordenador.nome
-        loja_resolvida = obj.loja_gestao
-        if not loja_resolvida and obj.centro_custo:
-            loja_resolvida = obter_loja_por_cc(obj.centro_custo)
+        loja_resolvida = obter_loja_por_cc(obj.centro_custo) if obj.centro_custo else None
         if loja_resolvida and loja_resolvida.coordenador:
             return loja_resolvida.coordenador.nome
         return None
 
     def get_supervisor(self, obj):
         """
-        Retorna o supervisor resolvido (TOTVS -> Gestão de Pessoas -> fallback por Centro de Custo).
+        Retorna o supervisor resolvido (TOTVS ou fallback por Centro de Custo).
         """
         if obj.loja and obj.loja.supervisor:
             return obj.loja.supervisor.nome
-        loja_resolvida = obj.loja_gestao
-        if not loja_resolvida and obj.centro_custo:
-            loja_resolvida = obter_loja_por_cc(obj.centro_custo)
-        if loja_resolvida and loja_resolvida.supervisor:
-            return loja_resolvida.supervisor.nome
-        return None
-
-    def get_loja_gestao_nome(self, obj):
-        """
-        Retorna o nome de referência da loja de gestão ou do fallback de Centro de Custo.
-        """
-        loja_resolvida = obj.loja_gestao
-        if not loja_resolvida and obj.centro_custo:
-            loja_resolvida = obter_loja_por_cc(obj.centro_custo)
-        
-        if loja_resolvida:
-            return loja_resolvida.nome_referencia
-        return None
-
-    def get_loja_gestao_coordenador(self, obj):
-        """
-        Retorna o coordenador associado à loja de gestão ou do fallback de Centro de Custo.
-        """
-        loja_resolvida = obj.loja_gestao
-        if not loja_resolvida and obj.centro_custo:
-            loja_resolvida = obter_loja_por_cc(obj.centro_custo)
-        
-        if loja_resolvida and loja_resolvida.coordenador:
-            return loja_resolvida.coordenador.nome
-        return None
-
-    def get_loja_gestao_supervisor(self, obj):
-        """
-        Retorna o supervisor associado à loja de gestão ou do fallback de Centro de Custo.
-        """
-        loja_resolvida = obj.loja_gestao
-        if not loja_resolvida and obj.centro_custo:
-            loja_resolvida = obter_loja_por_cc(obj.centro_custo)
-        
+        loja_resolvida = obter_loja_por_cc(obj.centro_custo) if obj.centro_custo else None
         if loja_resolvida and loja_resolvida.supervisor:
             return loja_resolvida.supervisor.nome
         return None
@@ -146,13 +94,6 @@ class ColaboradorSerializer(serializers.ModelSerializer):
             return obj.loja_geo.nome_geovictoria or obj.loja_geo.nome_referencia
         return None
 
-    def get_funcao_divergente(self, obj):
-        """
-        Calcula dinamicamente se a função do colaborador no cadastro TOTVS está divergente
-        daquela registrada na Gestão de Pessoas.
-        """
-        return funcao_esta_divergente(obj)
-
     def to_representation(self, instance):
         """
         Garante a tipagem de RE, CPF, centro de custo e todos os IDs
@@ -160,7 +101,7 @@ class ColaboradorSerializer(serializers.ModelSerializer):
         """
         data = super().to_representation(instance)
         # Garantindo que IDs sejam strings
-        for field in ["id", "loja", "loja_gestao", "loja_geo"]:
+        for field in ["id", "loja", "loja_geo"]:
             if field in data and data[field] is not None:
                 data[field] = str(data[field])
         
@@ -319,7 +260,7 @@ class TestePromocaoSerializer(serializers.ModelSerializer):
     colaborador_re = serializers.CharField(source="colaborador.re", read_only=True)
     colaborador_cargo = serializers.CharField(source="colaborador.cargo", read_only=True)
     colaborador_admissao = serializers.DateField(source="colaborador.data_admissao", read_only=True)
-    colaborador_status_gestao = serializers.CharField(source="colaborador.status_gestao", read_only=True)
+    colaborador_status_gestao = serializers.SerializerMethodField()
     
     loja_nome = serializers.SerializerMethodField()
     supervisor_nome = serializers.SerializerMethodField()
@@ -327,6 +268,9 @@ class TestePromocaoSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     
     historico_acoes = HistoricoAcaoTesteSerializer(many=True, read_only=True)
+
+    def get_colaborador_status_gestao(self, obj):
+        return (obj.colaborador.status if obj.colaborador else "") or ""
 
     class Meta:
         model = TestePromocao

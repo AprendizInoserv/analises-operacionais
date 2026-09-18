@@ -34,7 +34,6 @@ interface ImportStatus {
 export default function Importacoes() {
   const { role, permissions } = useOutletContext<{ role?: string; permissions?: Record<string, any> }>();
   const [sraFile, setSraFile] = useState<File | null>(null);
-  const [gestaoFile, setGestaoFile] = useState<File | null>(null);
   const [folhaFile, setFolhaFile] = useState<File | null>(null);
   const [turnoverFile, setTurnoverFile] = useState<File | null>(null);
   const [gper020File, setGper020File] = useState<File | null>(null);
@@ -69,7 +68,6 @@ export default function Importacoes() {
           setLoading(false);
           // Limpa todos os arquivos da tela após conclusão com sucesso
           setSraFile(null);
-          setGestaoFile(null);
           setFolhaFile(null);
           setTurnoverFile(null);
           setGper020File(null);
@@ -94,7 +92,7 @@ export default function Importacoes() {
   };
 
   // Faz o envio (upload) do arquivo para a API correspondente
-  const handleUpload = async (tipo: 'sra' | 'gestao' | 'folha' | 'turnover' | 'gper020' | 'marcas', file: File | null) => {
+  const handleUpload = async (tipo: 'sra' | 'folha' | 'turnover' | 'gper020' | 'marcas', file: File | null) => {
     if (!file) {
       alert('Selecione um arquivo primeiro.');
       return;
@@ -115,7 +113,6 @@ export default function Importacoes() {
 
     let endpoint = '';
     if (tipo === 'sra') endpoint = '/colaboradores/importar/';
-    else if (tipo === 'gestao') endpoint = '/colaboradores/importar-gestao/';
     else if (tipo === 'folha') endpoint = '/folhas/importar/';
     else if (tipo === 'turnover') endpoint = '/colaboradores/importar-turnover/';
     else if (tipo === 'gper020') endpoint = '/colaboradores/importar-gper020/';
@@ -269,22 +266,6 @@ export default function Importacoes() {
           onUpload={() => handleUpload('sra', sraFile)}
         />
 
-        {/* Card Gestão de Pessoas */}
-        <UploadCard
-          title="Gestão de Pessoas"
-          description="Atualiza funções e lotações das planilhas de RH. Formato aceito: planilha Excel (.xlsm / .xlsx)."
-          icon={
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-              <FileSpreadsheet className="h-6 w-6" />
-            </div>
-          }
-          accept=".xlsx,.xlsm,.xls"
-          file={gestaoFile}
-          setFile={setGestaoFile}
-          loading={loading}
-          buttonText="Importar Planilha Gestão"
-          onUpload={() => handleUpload('gestao', gestaoFile)}
-        />
 
         {permissions?.turnover?.create && (
           <>

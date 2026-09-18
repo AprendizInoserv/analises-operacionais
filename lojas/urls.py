@@ -54,7 +54,6 @@ urlpatterns = [
     # ========== NOVAS URLs (usando configuracoes) ==========
     path("importacoes/", configuracoes.importacoes, name="importacoes"),
     path("colaboradores/importar/", configuracoes.colaborador_import_async, name="colaborador_import"),
-    path("colaboradores/importar-gestao/", configuracoes.gestao_import_async, name="gestao_import"),
     path("colaboradores/importar-marcas/", configuracoes.punches_report_import_async, name="punches_report_import"),
     path("import-progress/<str:import_id>/", configuracoes.import_progress, name="import_progress"),
     path("import-status/<str:import_id>/", configuracoes.import_status_api, name="import_status_api"),

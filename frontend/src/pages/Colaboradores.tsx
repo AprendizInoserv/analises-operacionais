@@ -34,14 +34,10 @@ export default function Colaboradores() {
   const [cargoFiltro, setCargoFiltro] = useState('');
   const [lojaFiltro, setLojaFiltro] = useState('');
   const [statusFiltro, setStatusFiltro] = useState('');
-  const [statusGestaoFiltro, setStatusGestaoFiltro] = useState('');
   const [fetchTrigger, setFetchTrigger] = useState(0);
 
   // Estados dos Chips de auditoria rápida
-  const [statusDivergenteQuery, setStatusDivergenteQuery] = useState('');
-  const [funcaoDivergenteQuery, setFuncaoDivergenteQuery] = useState('');
   const [divergenteQuery, setDivergenteQuery] = useState('');
-  const [soTotvsQuery, setSoTotvsQuery] = useState('');
 
   // Modal de visualização da ficha detalhada
   const [selectedColab, setSelectedColab] = useState<Colaborador | null>(null);
@@ -77,11 +73,7 @@ export default function Colaboradores() {
           cargo: cargoFiltro || undefined,
           loja: lojaFiltro || undefined,
           status: activeTab === 'ativos' ? (statusFiltro || undefined) : undefined,
-          status_gestao: statusGestaoFiltro || undefined,
-          status_divergente: statusDivergenteQuery || undefined,
-          funcao_divergente: activeTab === 'ativos' ? (funcaoDivergenteQuery || undefined) : undefined,
           divergente: activeTab === 'ativos' ? (divergenteQuery || undefined) : undefined,
-          so_totvs: activeTab === 'ativos' ? (soTotvsQuery || undefined) : undefined,
         }
       });
 
@@ -114,10 +106,7 @@ export default function Colaboradores() {
     fetchColaboradores(true);
   }, [
     activeTab,
-    statusDivergenteQuery,
-    funcaoDivergenteQuery,
     divergenteQuery,
-    soTotvsQuery,
     fetchTrigger
   ]);
 
@@ -180,11 +169,7 @@ export default function Colaboradores() {
         nome: nomeBusca || "",
         cargo: cargoFiltro || "",
         status: statusFiltro || "",
-        status_gestao: statusGestaoFiltro || "",
         divergente: divergenteQuery || "",
-        funcao_divergente: funcaoDivergenteQuery || "",
-        so_totvs: soTotvsQuery || "",
-        status_divergente: statusDivergenteQuery || ""
       });
 
       if (response.data && response.data.status === 'started') {
@@ -214,13 +199,7 @@ export default function Colaboradores() {
     setCargoFiltro('');
     setLojaFiltro('');
     setStatusFiltro('');
-    setStatusGestaoFiltro('');
-    
-    // Reseta chips de auditoria
-    setStatusDivergenteQuery('');
-    setFuncaoDivergenteQuery('');
     setDivergenteQuery('');
-    setSoTotvsQuery('');
     
     setFetchTrigger(prev => prev + 1);
   };
@@ -238,13 +217,9 @@ export default function Colaboradores() {
       if (nomeBusca) params.append('nome', nomeBusca);
       if (cargoFiltro) params.append('cargo', cargoFiltro);
       if (lojaFiltro) params.append('loja', lojaFiltro);
-      if (activeTab === 'ativos' && statusFiltro) params.append('status', statusFiltro);
-      if (statusGestaoFiltro) params.append('status_gestao', statusGestaoFiltro);
-      if (statusDivergenteQuery) params.append('status_divergente', statusDivergenteQuery);
       if (activeTab === 'ativos') {
-        if (funcaoDivergenteQuery) params.append('funcao_divergente', funcaoDivergenteQuery);
+        if (statusFiltro) params.append('status', statusFiltro);
         if (divergenteQuery) params.append('divergente', divergenteQuery);
-        if (soTotvsQuery) params.append('so_totvs', soTotvsQuery);
       }
 
       const response = await api.get(`/colaboradores/exportar/?${params.toString()}`, {
@@ -273,13 +248,9 @@ export default function Colaboradores() {
       if (nomeBusca) params.append('nome', nomeBusca);
       if (cargoFiltro) params.append('cargo', cargoFiltro);
       if (lojaFiltro) params.append('loja', lojaFiltro);
-      if (activeTab === 'ativos' && statusFiltro) params.append('status', statusFiltro);
-      if (statusGestaoFiltro) params.append('status_gestao', statusGestaoFiltro);
-      if (statusDivergenteQuery) params.append('status_divergente', statusDivergenteQuery);
       if (activeTab === 'ativos') {
-        if (funcaoDivergenteQuery) params.append('funcao_divergente', funcaoDivergenteQuery);
+        if (statusFiltro) params.append('status', statusFiltro);
         if (divergenteQuery) params.append('divergente', divergenteQuery);
-        if (soTotvsQuery) params.append('so_totvs', soTotvsQuery);
       }
       const url = `http://${window.location.hostname}:${getBackendPort()}/colaboradores/exportar/?${params.toString()}`;
       window.open(url, '_blank');
@@ -307,10 +278,7 @@ export default function Colaboradores() {
           onClick={() => {
             setActiveTab('ativos');
             // Ao mudar de aba, reseta os chips rápidos
-            setStatusDivergenteQuery('');
-            setFuncaoDivergenteQuery('');
             setDivergenteQuery('');
-            setSoTotvsQuery('');
           }}
           className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
             activeTab === 'ativos'
@@ -325,10 +293,7 @@ export default function Colaboradores() {
           onClick={() => {
             setActiveTab('demitidos');
             // Ao mudar de aba, reseta os chips rápidos
-            setStatusDivergenteQuery('');
-            setFuncaoDivergenteQuery('');
             setDivergenteQuery('');
-            setSoTotvsQuery('');
           }}
           className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
             activeTab === 'demitidos'
@@ -356,16 +321,8 @@ export default function Colaboradores() {
         setLojaFiltro={setLojaFiltro}
         statusFiltro={statusFiltro}
         setStatusFiltro={setStatusFiltro}
-        statusGestaoFiltro={statusGestaoFiltro}
-        setStatusGestaoFiltro={setStatusGestaoFiltro}
-        statusDivergenteQuery={statusDivergenteQuery}
-        setStatusDivergenteQuery={setStatusDivergenteQuery}
-        funcaoDivergenteQuery={funcaoDivergenteQuery}
-        setFuncaoDivergenteQuery={setFuncaoDivergenteQuery}
         divergenteQuery={divergenteQuery}
         setDivergenteQuery={setDivergenteQuery}
-        soTotvsQuery={soTotvsQuery}
-        setSoTotvsQuery={setSoTotvsQuery}
         onSubmit={handleFilterSubmit}
         onClear={handleClearFilters}
         fetchTrigger={fetchTrigger}

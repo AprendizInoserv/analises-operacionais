@@ -1,4 +1,4 @@
-import { AlertCircle, AlertTriangle, FileCheck2, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { AlertCircle, FileCheck2, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
 import {
   Pagination,
@@ -21,20 +21,13 @@ export interface Colaborador {
   status: string;
   termino_1: string | null;
   termino_2: string | null;
-  funcao_gestao: string | null;
-  status_gestao: string | null;
   loja_nome: string | null;
-  loja_gestao_nome: string | null;
   loja_geo_nome: string | null;
   loja_coordenador?: string | null;
   loja_supervisor?: string | null;
-  loja_gestao_coordenador?: string | null;
-  loja_gestao_supervisor?: string | null;
   coordenador?: string | null;
   supervisor?: string | null;
   is_divergente: boolean;
-  funcao_divergente: boolean;
-  loja_gestao_divergente: boolean;
   loja_geo_divergente: boolean;
 }
 
@@ -54,8 +47,8 @@ interface ColaboradoresTableProps {
 /**
  * Tabela de listagem dos colaboradores ativos ou demitidos.
  * 
- * Por que existe: Exibe a lista de profissionais cruzando os status do TOTVS, 
- * da planilha de Gestão de Pessoas e do relógio de ponto (GeoVictoria).
+ * Por que existe: Exibe a lista de profissionais cruzando os dados do TOTVS
+ * e do relógio de ponto eletrônico (GeoVictoria).
  * Apresenta coordenador, supervisor, badges de alerta se houver divergências,
  * botão de exportar planilha Excel (.xlsx) e gerencia a paginação.
  */
@@ -184,14 +177,6 @@ export default function ColaboradoresTable({
                     <div className="text-xs font-medium text-neutral-850 dark:text-neutral-200">
                       {colab.cargo}
                     </div>
-                    {activeTab === 'ativos' && (
-                      <div className="text-[10px] text-neutral-550 dark:text-neutral-300">
-                        <span className="font-semibold text-neutral-500 dark:text-neutral-450">
-                          Gestão:
-                        </span>{' '}
-                        {colab.funcao_gestao || 'Em branco'}
-                      </div>
-                    )}
                   </td>
                   <td className="py-4 px-6 space-y-1">
                     <div className="text-xs text-neutral-700 dark:text-neutral-300">
@@ -201,58 +186,28 @@ export default function ColaboradoresTable({
                       {colab.loja_nome || colab.centro_custo}
                     </div>
                     {activeTab === 'ativos' && (
-                      <>
-                        <div className="text-xs text-neutral-700 dark:text-neutral-300">
-                          <span className="font-semibold text-neutral-500 dark:text-neutral-450">
-                            Gestão:
-                          </span>{' '}
-                          {colab.loja_gestao_nome || 'Em branco'}
-                        </div>
-                        <div className="text-xs text-neutral-700 dark:text-neutral-300">
-                          <span className="font-semibold text-neutral-500 dark:text-neutral-450">
-                            Geo:
-                          </span>{' '}
-                          {colab.loja_geo_nome || 'Em branco'}
-                        </div>
-                      </>
+                      <div className="text-xs text-neutral-700 dark:text-neutral-300">
+                        <span className="font-semibold text-neutral-500 dark:text-neutral-450">
+                          Geo:
+                        </span>{' '}
+                        {colab.loja_geo_nome || 'Sem registro'}
+                      </div>
                     )}
                   </td>
                   {/* Coordenador */}
                   <td className="py-4 px-6 space-y-1">
                     <div className="text-xs font-medium text-neutral-850 dark:text-neutral-200">
-                      {colab.coordenador || colab.loja_coordenador || colab.loja_gestao_coordenador || '-'}
+                      {colab.coordenador || colab.loja_coordenador || '-'}
                     </div>
-                    {activeTab === 'ativos' && colab.loja_gestao_coordenador && colab.loja_coordenador && colab.loja_gestao_coordenador !== colab.loja_coordenador && (
-                      <div className="text-[10px] text-neutral-550 dark:text-neutral-400">
-                        <span className="font-semibold text-neutral-500 dark:text-neutral-450">Gestão:</span>{' '}
-                        {colab.loja_gestao_coordenador}
-                      </div>
-                    )}
                   </td>
                   {/* Supervisor */}
                   <td className="py-4 px-6 space-y-1">
                     <div className="text-xs font-medium text-neutral-850 dark:text-neutral-200">
-                      {colab.supervisor || colab.loja_supervisor || colab.loja_gestao_supervisor || '-'}
+                      {colab.supervisor || colab.loja_supervisor || '-'}
                     </div>
-                    {activeTab === 'ativos' && colab.loja_gestao_supervisor && colab.loja_supervisor && colab.loja_gestao_supervisor !== colab.loja_supervisor && (
-                      <div className="text-[10px] text-neutral-550 dark:text-neutral-400">
-                        <span className="font-semibold text-neutral-500 dark:text-neutral-450">Gestão:</span>{' '}
-                        {colab.loja_gestao_supervisor}
-                      </div>
-                    )}
                   </td>
                   <td className="py-4 px-6 space-y-1.5">
                     <div>{getStatusBadge(colab.status)}</div>
-                    {colab.status_gestao && (
-                      <div className="text-[10px] text-neutral-550 dark:text-neutral-300 font-medium">
-                        <span className="font-semibold text-neutral-500 dark:text-neutral-450">
-                          Gestão:
-                        </span>{' '}
-                        <span className="font-semibold text-neutral-700 dark:text-neutral-200">
-                          {colab.status_gestao}
-                        </span>
-                      </div>
-                    )}
                   </td>
                   <td
                     className="py-4 px-6 text-right whitespace-nowrap"
@@ -261,32 +216,17 @@ export default function ColaboradoresTable({
                     <div className="flex flex-col gap-1 items-end">
                       {activeTab === 'ativos' && (
                         <>
-                          {colab.funcao_divergente && (
+                          {colab.is_divergente ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                              <AlertTriangle className="h-3 w-3" />
-                              Função Divergente
-                            </span>
-                          )}
-                          {colab.loja_gestao_divergente && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20">
                               <AlertCircle className="h-3 w-3" />
-                              Gestão diferente
+                              Ponto Divergente
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-bold bg-green-500/10 text-green-600 border border-green-500/20">
+                              <FileCheck2 className="h-3 w-3" />
+                              Conciliado
                             </span>
                           )}
-                          {colab.loja_geo_divergente && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20">
-                              <AlertCircle className="h-3 w-3" />
-                              Geo diferente
-                            </span>
-                          )}
-                          {!colab.loja_gestao_divergente &&
-                            !colab.loja_geo_divergente &&
-                            !colab.funcao_divergente && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-bold bg-green-500/10 text-green-600 border border-green-500/20">
-                                <FileCheck2 className="h-3 w-3" />
-                                Conciliado
-                              </span>
-                            )}
                         </>
                       )}
                       {activeTab === 'demitidos' && (

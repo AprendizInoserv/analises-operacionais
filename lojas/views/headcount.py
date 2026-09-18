@@ -24,10 +24,34 @@ def headcount_analise_api(request):
     """
     Por que existe: Esta view calcula o headcount planejado vs. real das lojas físicas ativas.
     Ela obtém o quadro planejado diretamente do cadastro de cada loja (campo 'quadro' convertido para inteiro)
-    e compara com a quantidade de pessoas ativas/aviso alocadas na Gestão de Pessoas, paginando os resultados.
+    e compara dinamicamente em tempo real com a quantidade de colaboradores ativos vinculados no TOTVS SRA
+    (Sit. Folha vazia para lojas em geral, e Sit. Folha vazia + 'F' de férias para o cliente Atacadão).
     """
-    # Filtra apenas lojas ativas com headcount real maior que zero
-    lojas = Loja.objects.filter(status="ATIVA").exclude(headcount_real=0).order_by("nome_referencia")
+    from datetime import timedelta
+    from django.utils import timezone
+    from django.db.models import Count
+    from colaboradores.models import PresencaRelogio
+
+    # 1. Carrega contagens agregadas em tempo real do TOTVS SRA
+    # Ativos normais: status == "" ou None
+    ativos_dados = (
+        Colaborador.objects.filter(loja__isnull=False)
+        .filter(Q(status="") | Q(status__isnull=True))
+        .values("loja_id")
+        .annotate(total=Count("id"))
+    )
+    ativos_map = {item["loja_id"]: item["total"] for item in ativos_dados}
+
+    # Colaboradores em férias: status == "F" (relevante para lojas do Atacadão)
+    ferias_dados = (
+        Colaborador.objects.filter(loja__isnull=False, status="F")
+        .values("loja_id")
+        .annotate(total=Count("id"))
+    )
+    ferias_map = {item["loja_id"]: item["total"] for item in ferias_dados}
+
+    # Carrega todas as lojas ativas
+    lojas = Loja.objects.filter(status="ATIVA").order_by("nome_referencia")
 
     # Aplica busca textual se informada usando unidecode (para ser insensível a acentuações e case-insensitive)
     search_text = request.GET.get("busca", "").strip()
@@ -48,29 +72,7 @@ def headcount_analise_api(request):
     else:
         lojas_list = list(lojas)
 
-    # Calcula KPIs Globais sobre a lista inteira filtrada
-    total_planejado = 0
-    total_real_acumulado = 0
-    total_excedentes = 0
-    for loja in lojas_list:
-        quadro_val = 0
-        try:
-            quadro_val = int(float(str(loja.quadro).strip()))
-        except (ValueError, TypeError):
-            pass
-        total_planejado += quadro_val
-        total_real_acumulado += loja.headcount_real
-
-        # Por que existe: Calcula o total de funcionários excedentes (quando o real supera o planejado)
-        desvio_loja = loja.headcount_real - quadro_val
-        if desvio_loja > 0:
-            total_excedentes += desvio_loja
-
-    from datetime import timedelta
-    from django.utils import timezone
-    from django.db.models import Count
-    from colaboradores.models import PresencaRelogio
-
+    # 2. Presenças do ponto eletrônico GeoVictoria do dia anterior
     local_today = timezone.localtime(timezone.now()).date()
     ontem = local_today - timedelta(days=1)
 
@@ -81,8 +83,12 @@ def headcount_analise_api(request):
     )
     presencas_ontem_map = {str(item["loja_id"]): item["count"] for item in presencas_ontem_dados if item["loja_id"]}
 
-    # Monta os resultados de todas as lojas antes de ordenar e paginar
+    # 3. Monta os resultados de todas as lojas calculando o headcount real dinamicamente
     resultado_completo = []
+    total_planejado = 0
+    total_real_acumulado = 0
+    total_excedentes = 0
+
     for loja in lojas_list:
         quadro_planejado = 0
         try:
@@ -90,8 +96,22 @@ def headcount_analise_api(request):
         except (ValueError, TypeError):
             pass
 
-        real = loja.headcount_real
+        # Cálculo dinâmico do efetivo real:
+        is_atacadao = "ATACADAO" in unidecode(loja.cliente or "").upper()
+        real = ativos_map.get(loja.id, 0)
+        if is_atacadao:
+            real += ferias_map.get(loja.id, 0)
+
+        # Se a loja não tem pessoas e nem quadro planejado, desconsidera da listagem operacional
+        if real == 0 and quadro_planejado == 0:
+            continue
+
         desvio = real - quadro_planejado
+
+        total_planejado += quadro_planejado
+        total_real_acumulado += real
+        if desvio > 0:
+            total_excedentes += desvio
 
         presencas_ontem = presencas_ontem_map.get(str(loja.id), 0)
         aderencia = 0.0
@@ -103,7 +123,7 @@ def headcount_analise_api(request):
             "nome_referencia": loja.nome_referencia,
             "centro_de_custo": loja.centro_de_custo,
             "cliente": loja.cliente or "-",
-            "is_atacadao": "ATACADAO" in unidecode(loja.cliente or "").upper(),
+            "is_atacadao": is_atacadao,
             "quadro_planejado": quadro_planejado,
             "headcount_real": real,
             "desvio": desvio,
@@ -136,7 +156,7 @@ def headcount_analise_api(request):
             "total_planejado": total_planejado,
             "total_real": total_real_acumulado,
             "total_excedentes": total_excedentes,
-            "total_lojas": len(lojas_list),
+            "total_lojas": len(resultado_completo),
         },
         "resultados": page if page is not None else resultado_completo,
     }
@@ -150,21 +170,19 @@ def headcount_analise_api(request):
 @permission_classes([IsAuthenticated, IsGestaoOrAdministrador])
 def headcount_loja_colaboradores_api(request, loja_id):
     """
-    Por que existe: Retorna nominalmente a lista de colaboradores associados à loja que
-    estão contabilizados na contagem de headcount (ativos ou férias se for Atacadão).
-    Permite auditar diretamente na tela quem são os funcionários alocados na Gestão de Pessoas.
+    Por que existe: Retorna nominalmente a lista de colaboradores associados à loja no TOTVS SRA que
+    estão contabilizados na contagem de headcount (ativos normais ou férias se for Atacadão).
+    Permite auditar diretamente na tela quem são os funcionários alocados na filial.
     """
     loja = get_object_or_404(Loja, pk=loja_id)
     is_atacadao = "ATACADAO" in unidecode(loja.cliente or "").upper()
 
-    colabs_qs = Colaborador.objects.filter(loja_gestao=loja)
+    q_filtro = Q(loja=loja)
+    if is_atacadao:
+        q_filtro &= (Q(status="") | Q(status__isnull=True) | Q(status="F"))
+    else:
+        q_filtro &= (Q(status="") | Q(status__isnull=True))
 
-    ids_validos = []
-    for c in colabs_qs:
-        status_clean = unidecode((c.status_gestao or "").strip().upper())
-        if status_clean == "ATIVO" or "AVISO" in status_clean or (is_atacadao and "FERIA" in status_clean):
-            ids_validos.append(c.id)
-
-    colabs_filtrados = Colaborador.objects.filter(id__in=ids_validos).order_by("nome")
+    colabs_filtrados = Colaborador.objects.filter(q_filtro).order_by("nome")
     serializer = ColaboradorSerializer(colabs_filtrados, many=True)
     return Response(serializer.data)

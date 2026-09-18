@@ -14,8 +14,8 @@ interface TerminosFilterProps {
   setNomeFiltro: (val: string) => void;
   coordenador: string;
   setCoordenador: (val: string) => void;
-  statusGestao: string;
-  setStatusGestao: (val: string) => void;
+  statusFiltro: string;
+  setStatusFiltro: (val: string) => void;
   dataFiltro: string;
   setDataFiltro: (val: string) => void;
   dataFim: string;
@@ -33,7 +33,7 @@ interface TerminosFilterProps {
  * Painel de Filtros de busca inteligentes (Excel-like) para os vencimentos de termos.
  * 
  * Por que existe: Isola toda a complexidade visual e de carregamento reativo das
- * opções válidas de RE, Nome, Coordenadores e Status. Evita o inchaço e a poluição 
+ * opções válidas de RE, Nome, Coordenadores, Situação Folha e Prazos. Evita o inchaço e a poluição 
  * do arquivo principal de termos.
  */
 export default function TerminosFilter({
@@ -43,8 +43,8 @@ export default function TerminosFilter({
   setNomeFiltro,
   coordenador,
   setCoordenador,
-  statusGestao,
-  setStatusGestao,
+  statusFiltro,
+  setStatusFiltro,
   dataFiltro,
   setDataFiltro,
   dataFim,
@@ -59,7 +59,6 @@ export default function TerminosFilter({
 }: TerminosFilterProps) {
   // Opções dinâmicas carregadas da API
   const [coordenadoresOpcoes, setCoordenadoresOpcoes] = useState<string[]>([]);
-  const [statusGestaoOpcoes, setStatusGestaoOpcoes] = useState<string[]>([]);
   const [loadingOpcoes, setLoadingOpcoes] = useState(false);
 
   // Efeito para carregar as opções disponíveis de acordo com os filtros selecionados (filtro cruzado reativo)
@@ -72,7 +71,6 @@ export default function TerminosFilter({
           params: {
             is_termino: 'true',
             coordenador: coordenador || undefined,
-            status_gestao: statusGestao || undefined,
             data_filtro: dataFiltro || undefined,
             data_fim: dataFim || undefined,
           },
@@ -80,7 +78,6 @@ export default function TerminosFilter({
 
         if (response.data) {
           setCoordenadoresOpcoes(response.data.coordenadores || []);
-          setStatusGestaoOpcoes(response.data.status_gestao || []);
         }
       } catch (err) {
         console.error('Erro ao buscar opções de filtros para termos:', err);
@@ -90,7 +87,7 @@ export default function TerminosFilter({
     };
 
     fetchFiltroOpcoes();
-  }, [coordenador, statusGestao, dataFiltro, dataFim, fetchTrigger]);
+  }, [coordenador, dataFiltro, dataFim, fetchTrigger]);
 
   return (
     <form
@@ -144,21 +141,22 @@ export default function TerminosFilter({
           />
         </div>
 
-        {/* Status de Gestão */}
+        {/* Situação Folha (TOTVS) */}
         <div>
           <label className="block text-xs font-semibold text-neutral-600 uppercase tracking-wider mb-1.5">
-            Status de Gestão
+            Situação Folha (TOTVS)
           </label>
           <SearchableSelect
             options={[
-              { value: '', label: 'Todos' },
-              ...statusGestaoOpcoes.map((op) => ({ value: op, label: op })),
+              { value: '', label: 'Todas as Situações' },
+              { value: 'ativo', label: 'Ativo (Normal)' },
+              { value: 'A', label: 'Afastado (A)' },
+              { value: 'F', label: 'Férias (F)' },
             ]}
-            value={statusGestao}
-            onChange={setStatusGestao}
-            placeholder="Todos"
+            value={statusFiltro}
+            onChange={setStatusFiltro}
+            placeholder="Todas as Situações"
             multiple={true}
-            loading={loadingOpcoes}
           />
         </div>
 

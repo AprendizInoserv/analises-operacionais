@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, AlertTriangle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import api from '../../api/client';
 import SearchableSelect from '../ui/searchable-select';
 
@@ -24,18 +24,11 @@ interface ColaboradoresFilterProps {
   setLojaFiltro: (val: string) => void;
   statusFiltro: string;
   setStatusFiltro: (val: string) => void;
-  statusGestaoFiltro: string;
-  setStatusGestaoFiltro: (val: string) => void;
 
-  // Estados dos Chips Rápidos
-  statusDivergenteQuery: string;
-  setStatusDivergenteQuery: (val: string) => void;
-  funcaoDivergenteQuery: string;
-  setFuncaoDivergenteQuery: (val: string) => void;
+  // Chip de Divergência de Ponto
   divergenteQuery: string;
   setDivergenteQuery: (val: string) => void;
-  soTotvsQuery: string;
-  setSoTotvsQuery: (val: string) => void;
+
   onSubmit: (e: React.FormEvent) => void;
   onClear: () => void;
   fetchTrigger?: number;
@@ -45,8 +38,8 @@ interface ColaboradoresFilterProps {
  * Componente do painel de filtros e chips de auditoria de colaboradores.
  * 
  * Por que existe: Gerencia os filtros de busca reativos estilo Excel, incluindo
- * buscas cruzadas automáticas da API e os botões rápidos de auditoria para identificar
- * divergências de status, função ou lotação de ponto.
+ * buscas cruzadas automáticas da API e o botão rápido de auditoria para identificar
+ * divergências de ponto eletrônico (GeoVictoria vs TOTVS).
  */
 export default function ColaboradoresFilter({
   activeTab,
@@ -62,27 +55,17 @@ export default function ColaboradoresFilter({
   setLojaFiltro,
   statusFiltro,
   setStatusFiltro,
-  statusGestaoFiltro,
-  setStatusGestaoFiltro,
-  statusDivergenteQuery,
-  setStatusDivergenteQuery,
-  funcaoDivergenteQuery,
-  setFuncaoDivergenteQuery,
   divergenteQuery,
   setDivergenteQuery,
-  soTotvsQuery,
-  setSoTotvsQuery,
   onSubmit,
   onClear,
   fetchTrigger,
 }: ColaboradoresFilterProps) {
   // Cache de opções dinâmicas obtidas da API
   const [lojasOpcoes, setLojasOpcoes] = useState<LojaRef[]>([]);
-  const [statusGestaoOpcoes, setStatusGestaoOpcoes] = useState<string[]>([]);
   const [loadingOpcoes, setLoadingOpcoes] = useState(false);
 
   // Efeito reativo para recalcular e atualizar as opções válidas dos filtros (excel-like)
-  // Nota: removemos reBusca e nomeBusca das dependências para evitar chamadas de API a cada letra digitada.
   useEffect(() => {
     const fetchFiltroOpcoes = async () => {
       setLoadingOpcoes(true);
@@ -92,18 +75,13 @@ export default function ColaboradoresFilter({
             is_demitido: activeTab === 'demitidos' ? 'true' : undefined,
             loja: lojaFiltro || undefined,
             status: activeTab === 'ativos' ? statusFiltro || undefined : undefined,
-            status_gestao: statusGestaoFiltro || undefined,
             cargo: cargoFiltro || undefined,
-            status_divergente: statusDivergenteQuery || undefined,
-            funcao_divergente: activeTab === 'ativos' ? funcaoDivergenteQuery || undefined : undefined,
             divergente: activeTab === 'ativos' ? divergenteQuery || undefined : undefined,
-            so_totvs: activeTab === 'ativos' ? soTotvsQuery || undefined : undefined,
           },
         });
 
         if (response.data) {
           setLojasOpcoes(response.data.lojas || []);
-          setStatusGestaoOpcoes(response.data.status_gestao || []);
         }
       } catch (err) {
         console.error('Erro ao buscar opções de filtros:', err);
@@ -117,40 +95,18 @@ export default function ColaboradoresFilter({
     activeTab,
     lojaFiltro,
     statusFiltro,
-    statusGestaoFiltro,
     cargoFiltro,
-    statusDivergenteQuery,
-    funcaoDivergenteQuery,
     divergenteQuery,
-    soTotvsQuery,
     fetchTrigger,
   ]);
 
-  // Auxiliar para ligar/desligar um chip de auditoria rápido
-  const toggleQuickFilter = (type: 'status_divergente' | 'funcao_divergente' | 'divergente' | 'so_totvs') => {
-    if (type === 'status_divergente') {
-      setStatusDivergenteQuery(statusDivergenteQuery === 'S' ? '' : 'S');
-    } else if (type === 'funcao_divergente') {
-      setFuncaoDivergenteQuery(funcaoDivergenteQuery === 'S' ? '' : 'S');
-    } else if (type === 'divergente') {
-      setDivergenteQuery(divergenteQuery === 'S' ? '' : 'S');
-    } else if (type === 'so_totvs') {
-      setSoTotvsQuery(soTotvsQuery === 'S' ? '' : 'S');
-    }
+  const toggleDivergente = () => {
+    setDivergenteQuery(divergenteQuery === 'S' ? '' : 'S');
   };
 
   const clearQuickFilters = () => {
-    setStatusDivergenteQuery('');
-    setFuncaoDivergenteQuery('');
     setDivergenteQuery('');
-    setSoTotvsQuery('');
   };
-
-  const anyFilterActive =
-    statusDivergenteQuery ||
-    funcaoDivergenteQuery ||
-    divergenteQuery ||
-    soTotvsQuery;
 
   return (
     <div className="space-y-4">
@@ -163,7 +119,7 @@ export default function ColaboradoresFilter({
           type="button"
           onClick={clearQuickFilters}
           className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer ${
-            !anyFilterActive
+            !divergenteQuery
               ? 'bg-neutral-900 text-white border-neutral-900 dark:bg-white dark:text-neutral-900 dark:border-white'
               : 'border-neutral-200 dark:border-neutral-800 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800'
           }`}
@@ -171,58 +127,19 @@ export default function ColaboradoresFilter({
           Todos
         </button>
 
-        <button
-          type="button"
-          onClick={() => toggleQuickFilter('status_divergente')}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer ${
-            statusDivergenteQuery === 'S'
-              ? 'bg-red-600 text-white border-red-600 shadow-sm'
-              : 'border-red-500/30 text-red-500 hover:bg-red-500/5'
-          }`}
-        >
-          <AlertCircle className="h-3.5 w-3.5" />
-          Status Divergente
-        </button>
-
         {activeTab === 'ativos' && (
-          <>
-            <button
-              type="button"
-              onClick={() => toggleQuickFilter('funcao_divergente')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer ${
-                funcaoDivergenteQuery === 'S'
-                  ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
-                  : 'border-amber-500/30 text-amber-600 hover:bg-amber-500/5'
-              }`}
-            >
-              <AlertTriangle className="h-3.5 w-3.5" />
-              Função Divergente
-            </button>
-
-            <button
-              type="button"
-              onClick={() => toggleQuickFilter('divergente')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer ${
-                divergenteQuery === 'S'
-                  ? 'bg-red-500 text-white border-red-500 shadow-sm'
-                  : 'border-red-500/20 text-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-              }`}
-            >
-              Divergências de Loja
-            </button>
-
-            <button
-              type="button"
-              onClick={() => toggleQuickFilter('so_totvs')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer ${
-                soTotvsQuery === 'S'
-                  ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
-                  : 'border-amber-500/20 text-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-              }`}
-            >
-              Apenas TOTVS
-            </button>
-          </>
+          <button
+            type="button"
+            onClick={toggleDivergente}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer ${
+              divergenteQuery === 'S'
+                ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                : 'border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10'
+            }`}
+          >
+            <AlertCircle className="h-3.5 w-3.5" />
+            Divergência de Ponto (GeoVictoria)
+          </button>
         )}
       </div>
 
@@ -231,12 +148,11 @@ export default function ColaboradoresFilter({
         onSubmit={onSubmit}
         className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-xs p-5 shadow-sm space-y-4"
       >
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <div>
             <label className="block text-xs font-semibold text-neutral-600 uppercase tracking-wider mb-1.5">
               Loja TOTVS
             </label>
-            {/* Por que existe: Exibe o nome TOTVS da loja no filtro, conforme o solicitado pelo usuário. */}
             <SearchableSelect
               options={[
                 { value: '', label: 'Todas as Lojas' },
@@ -308,7 +224,7 @@ export default function ColaboradoresFilter({
           {activeTab === 'ativos' && (
             <div>
               <label className="block text-xs font-semibold text-neutral-600 uppercase tracking-wider mb-1.5">
-                Status TOTVS
+                Situação Folha (TOTVS)
               </label>
               <SearchableSelect
                 options={[
@@ -325,23 +241,6 @@ export default function ColaboradoresFilter({
               />
             </div>
           )}
-
-          <div>
-            <label className="block text-xs font-semibold text-neutral-600 uppercase tracking-wider mb-1.5">
-              Status Gestão
-            </label>
-            <SearchableSelect
-              options={[
-                { value: '', label: 'Todos' },
-                ...statusGestaoOpcoes.map((op) => ({ value: op, label: op })),
-              ]}
-              value={statusGestaoFiltro}
-              onChange={setStatusGestaoFiltro}
-              placeholder="Todos"
-              multiple={true}
-              loading={loadingOpcoes}
-            />
-          </div>
         </div>
 
         <div className="flex justify-end gap-3 pt-2">

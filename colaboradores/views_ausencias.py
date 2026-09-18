@@ -72,11 +72,6 @@ def _obter_dados_analise_ausencias(request):
         if regioes:
             colaboradores_qs = colaboradores_qs.filter(loja__uf__in=regioes)
 
-    if status_gestao_query:
-        statuses = [s.strip() for s in status_gestao_query.split(",") if s.strip()]
-        if statuses:
-            colaboradores_qs = colaboradores_qs.filter(status_gestao__in=statuses)
-
     colaboradores_list = list(colaboradores_qs)
     colab_ids = [c.id for c in colaboradores_list]
 
@@ -182,7 +177,7 @@ def _obter_dados_analise_ausencias(request):
             "coordenador_nome": colab.loja.coordenador.nome if colab.loja and colab.loja.coordenador and colab.loja.coordenador.nome else "-",
             "supervisor_nome": colab.loja.supervisor.nome if colab.loja and colab.loja.supervisor and colab.loja.supervisor.nome else "-",
             "sub_regiao": colab.loja.uf if colab.loja else "-",
-            "status_gestao": colab.status_gestao or "-",
+            "status_gestao": colab.status or "-",
             "faltas": faltas_count,
             "atestados": atestados_count,
             "soma": soma_count,
@@ -361,11 +356,8 @@ def ausencias_analise_filtro_opcoes_api(request):
     lojas_set = set()
     coordenadores_set = set()
     regioes_set = set()
-    status_gestao_set = set()
 
     for c in colaboradores_qs:
-        if c.status_gestao:
-            status_gestao_set.add(c.status_gestao.strip())
         if c.loja:
             lojas_set.add((c.loja.id, c.loja.nome_totvs or c.loja.nome_referencia))
             if c.loja.coordenador and c.loja.coordenador.nome:
@@ -379,11 +371,10 @@ def ausencias_analise_filtro_opcoes_api(request):
     )
     coordenadores_list = sorted(list(coordenadores_set))
     regioes_list = sorted(list(regioes_set))
-    status_gestao_list = sorted(list(status_gestao_set))
 
     return Response({
         "lojas": lojas_list,
         "coordenadores": coordenadores_list,
         "regioes": regioes_list,
-        "status_gestao": status_gestao_list
+        "status_gestao": []
     })

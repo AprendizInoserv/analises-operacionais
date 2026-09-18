@@ -118,18 +118,18 @@ def terminos_list(request):
     data_filtro = request.GET.get("data_filtro", "")
     data_fim = request.GET.get("data_fim", "")
     coordenador_query = request.GET.get("coordenador", "")
-    status_gestao_query = request.GET.get("status_gestao", "")
+    status_folha_query = request.GET.get("status", "") or request.GET.get("sit_folha", "") or request.GET.get("status_gestao", "")
     re_query = request.GET.get("re", "")
     nome_query = request.GET.get("nome", "")
     etapa_filtro = request.GET.get("etapa", "")
     acao_filtro = request.GET.get("acao", "")
 
-    # Esta chamada aplica filtros de busca, coordenador, status de gestão, matrícula (RE) e nome do colaborador.
+    # Esta chamada aplica filtros de busca, coordenador, situação folha, matrícula (RE) e nome do colaborador.
     colaboradores_qs = _filtrar_terminos_queryset(
         colaboradores_qs,
         search_query,
         coordenador_query,
-        status_gestao_query,
+        status_folha_query=status_folha_query,
         re_query=re_query,
         nome_query=nome_query,
     )
@@ -177,7 +177,7 @@ def exportar_terminos_excel(request):
     data_filtro = request.GET.get("data_filtro", "")
     data_fim = request.GET.get("data_fim", "")
     coordenador_query = request.GET.get("coordenador", "")
-    status_gestao_query = request.GET.get("status_gestao", "")
+    status_folha_query = request.GET.get("status", "") or request.GET.get("sit_folha", "") or request.GET.get("status_gestao", "")
     re_query = request.GET.get("re", "")
     nome_query = request.GET.get("nome", "")
     etapa_filtro = request.GET.get("etapa", "")
@@ -188,7 +188,7 @@ def exportar_terminos_excel(request):
         colaboradores_qs,
         search_query,
         coordenador_query,
-        status_gestao_query,
+        status_folha_query=status_folha_query,
         re_query=re_query,
         nome_query=nome_query,
     )
@@ -226,7 +226,7 @@ def exportar_terminos_excel(request):
             "Término 2": colaborador.termino_2.strftime("%d/%m/%Y") if colaborador.termino_2 else "",
             "Fase Atual": state["tipoTermino"],
             "Status": state["statusControle"],
-            "Status Gestão": colaborador.status_gestao or "-",
+            "Situação Folha": colaborador.status or "-",
             "Faltas": item.get("faltas", 0),
             "Atestados": item.get("atestados", 0),
             "Última Obs": ultima_obs,
@@ -345,9 +345,6 @@ def _buscar_colaboradores_com_termino():
         "loja",
         "loja__coordenador",
         "loja__supervisor",
-        "loja_gestao",
-        "loja_gestao__coordenador",
-        "loja_gestao__supervisor",
         "loja_geo",
     ).prefetch_related(
         "controles_termino",
@@ -358,14 +355,14 @@ def _filtrar_terminos_queryset(
     colaboradores_qs,
     search_query,
     coordenador_query,
-    status_gestao_query,
+    status_folha_query="",
     re_query="",
     nome_query="",
 ):
     """
     Aplica filtros de banco de dados nos colaboradores de término para limitar a lista.
-    Este filtro resolve buscas por termo geral, listas de matrícula (RE), nome, coordenador e status.
-    Suporta a filtragem por registros sem informação (nulo/vazio) quando o valor "null" é recebido.
+    Este filtro resolve buscas por termo geral, listas de matrícula (RE), nome, coordenador e situação da folha (status).
+    Suporta a filtragem por registros sem informação (nulo/vazio) quando o valor "null" ou "ativo" é recebido.
     """
     if search_query:
         # Modificado: Realiza a busca direto no banco de dados para evitar carregar milhares
@@ -418,17 +415,17 @@ def _filtrar_terminos_queryset(
                 q_obj = q_obj | Q(loja__isnull=True) | Q(loja__coordenador__isnull=True) | Q(loja__coordenador__nome="") | Q(loja__coordenador__nome__isnull=True)
             colaboradores_qs = colaboradores_qs.filter(q_obj)
 
-    if status_gestao_query:
-        status_list = [s.strip() for s in status_gestao_query.split(",") if s.strip()]
+    if status_folha_query:
+        status_list = [s.strip().upper() for s in status_folha_query.split(",") if s.strip()]
         if status_list:
-            has_null = "null" in status_list
-            vals = [s for s in status_list if s != "null"]
-            q_obj = Q()
-            if vals:
-                q_obj = Q(status_gestao__in=vals)
-            if has_null:
-                q_obj = q_obj | Q(status_gestao__isnull=True) | Q(status_gestao="")
-            colaboradores_qs = colaboradores_qs.filter(q_obj)
+            q_st = Q()
+            has_ativo = any(s in ["ATIVO", "NORMAL", "NULL", "VAZIO"] for s in status_list)
+            other_statuses = [s for s in status_list if s not in ["ATIVO", "NORMAL", "NULL", "VAZIO"]]
+            if other_statuses:
+                q_st = q_st | Q(status__in=other_statuses)
+            if has_ativo:
+                q_st = q_st | Q(status__isnull=True) | Q(status="") | Q(status="ATIVO")
+            colaboradores_qs = colaboradores_qs.filter(q_st)
 
     return colaboradores_qs
 

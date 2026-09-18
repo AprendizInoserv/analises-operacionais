@@ -50,7 +50,7 @@ def limpar_valor_monetario(valor):
 def construir_mapa_lojas():
     """
     Cria um mapa de nomes normalizados de lojas para os seus respectivos IDs de Loja.
-    Dá prioridade para o nome_totvs, depois nome_referencia e por fim nome_gestao.
+    Dá prioridade para o nome_totvs e depois nome_referencia.
     """
     mapa = {}
     
@@ -63,12 +63,6 @@ def construir_mapa_lojas():
     # Prioridade 2: nome_referencia
     for loja in Loja.objects.all():
         nome_norm = normalizar_nome(loja.nome_referencia)
-        if nome_norm and nome_norm not in mapa:
-            mapa[nome_norm] = loja
-            
-    # Prioridade 3: nome_gestao
-    for loja in Loja.objects.exclude(nome_gestao=""):
-        nome_norm = normalizar_nome(loja.nome_gestao)
         if nome_norm and nome_norm not in mapa:
             mapa[nome_norm] = loja
             

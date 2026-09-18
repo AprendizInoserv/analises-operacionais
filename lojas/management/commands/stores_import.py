@@ -69,7 +69,6 @@ class Command(BaseCommand):
                 dados_loja = {
                     "nome_referencia": nome_referencia,
                     "nome_geovictoria": self._clean_text(row.get("NOME GEOVICTORIA")),
-                    "nome_gestao": self._clean_text(row.get("NOME GESTÃO")),
                     "nome_totvs": self._clean_text(row.get("NOME TOTVS")),
                     "centro_de_custo": centro_de_custo,
                     "cnpj": self._clean_text(row.get("CNPJ")),

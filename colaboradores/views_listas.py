@@ -18,7 +18,6 @@ from lojas.serializers import LojaSerializer
 
 from .models import Colaborador
 from .serializers import ColaboradorSerializer, obter_loja_por_cc
-from .view_utils import funcao_esta_divergente
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated, IsGestaoOrAdministrador])
@@ -51,8 +50,7 @@ def demitido_list(request):
     colaboradores_qs = Colaborador.objects.filter(status="D").exclude(
         cargo="AUXILIAR ADMINISTRAT"
     ).select_related(
-        "loja", "loja__coordenador", "loja__supervisor",
-        "loja_gestao", "loja_gestao__coordenador", "loja_gestao__supervisor"
+        "loja", "loja__coordenador", "loja__supervisor"
     )
 
     colaboradores_qs = _aplicar_filtros_demitidos(colaboradores_qs, filtros)
@@ -70,15 +68,13 @@ def demitido_list(request):
 
 def _resolver_lideranca(colab):
     """
-    Retorna a tupla (coordenador, supervisor) resolvendo primeiro pela loja física TOTVS,
-    depois pela loja de Gestão e, por fim, pelo Centro de Custo.
+    Retorna a tupla (coordenador, supervisor) resolvendo pela loja física TOTVS
+    ou pelo Centro de Custo como fallback.
     """
     coord = "-"
     superv = "-"
     if colab.loja and colab.loja.coordenador:
         coord = colab.loja.coordenador.nome
-    elif colab.loja_gestao and colab.loja_gestao.coordenador:
-        coord = colab.loja_gestao.coordenador.nome
     elif colab.centro_custo:
         l = obter_loja_por_cc(colab.centro_custo)
         if l and l.coordenador:
@@ -86,8 +82,6 @@ def _resolver_lideranca(colab):
 
     if colab.loja and colab.loja.supervisor:
         superv = colab.loja.supervisor.nome
-    elif colab.loja_gestao and colab.loja_gestao.supervisor:
-        superv = colab.loja_gestao.supervisor.nome
     elif colab.centro_custo:
         l = obter_loja_por_cc(colab.centro_custo)
         if l and l.supervisor:
@@ -118,14 +112,9 @@ def _computar_auditoria(colab, tipo):
     """
     if tipo == "demitidos":
         return "Ficha Demitida"
-    divergencias = []
-    if funcao_esta_divergente(colab):
-        divergencias.append("Função Divergente")
-    if colab.loja_gestao_divergente:
-        divergencias.append("Gestão Diferente")
     if colab.loja_geo_divergente:
-        divergencias.append("Geo Victoria Diferente")
-    return ", ".join(divergencias) if divergencias else "Conciliado"
+        return "Lotação Divergente (Ponto)"
+    return "Conciliado"
 
 
 @api_view(["GET"])
@@ -144,8 +133,7 @@ def colaborador_exportar_excel(request):
         colaboradores_qs = Colaborador.objects.filter(status="D").exclude(
             cargo="AUXILIAR ADMINISTRAT"
         ).select_related(
-            "loja", "loja__coordenador", "loja__supervisor",
-            "loja_gestao", "loja_gestao__coordenador", "loja_gestao__supervisor"
+            "loja", "loja__coordenador", "loja__supervisor"
         )
         colaboradores_qs = _aplicar_filtros_demitidos(colaboradores_qs, filtros)
     else:
@@ -163,15 +151,12 @@ def colaborador_exportar_excel(request):
             "Matrícula (RE)": c.re,
             "Colaborador": c.nome,
             "CPF": c.cpf or "-",
-            "Função TOTVS": c.cargo or "-",
-            "Função Gestão": c.funcao_gestao or "-",
+            "Cargo / Função": c.cargo or "-",
             "Lotação TOTVS": c.loja.nome_totvs or c.loja.nome_referencia if c.loja else (c.centro_custo or "-"),
-            "Lotação Gestão": c.loja_gestao.nome_referencia if c.loja_gestao else "-",
             "Lotação GeoVictoria": c.loja_geo.nome_geovictoria if c.loja_geo else "-",
             "Coordenador": coord_nome,
             "Supervisor": super_nome,
             "Status TOTVS": _formatar_status_totvs(c.status),
-            "Status Gestão": c.status_gestao or "-",
             "Data Admissão": data_adm_str,
         }
         if tipo == "demitidos":
@@ -213,18 +198,9 @@ def colaborador_exportar_excel(request):
 @permission_classes([IsAuthenticated, IsGestaoOrAdministrador])
 def status_gestao_opcoes(request):
     """
-    Esta view existe para retornar ao frontend todas as opções distintas de status de gestão
-    salvas no banco de dados, permitindo que a tela renderize um menu select dinamicamente.
+    Retorna lista vazia pois a Gestão de Pessoas foi descontinuada.
     """
-    status_unicos = Colaborador.objects.values_list("status_gestao", flat=True)
-    opcoes = sorted(
-        set(
-            status.strip().upper()
-            for status in status_unicos
-            if status and status.strip()
-        )
-    )
-    return Response(opcoes)
+    return Response([])
 
 
 def _termo_para_regex(termo):
@@ -259,7 +235,7 @@ def _termo_para_regex(termo):
 
 def _ler_filtros_colaboradores(params):
     """
-    Centraliza a leitura dos filtros para a tela e para a sincronização usarem os mesmos nomes.
+    Centraliza a leitura dos filtros para a tela de colaboradores ativos.
     """
     return {
         "loja": params.get("loja", ""),
@@ -268,18 +244,13 @@ def _ler_filtros_colaboradores(params):
         "nome": params.get("nome", ""),
         "cargo": params.get("cargo", ""),
         "status": params.get("status", ""),
-        "loja_gestao": params.get("loja_gestao", ""),
-        "status_gestao": params.get("status_gestao", ""),
         "divergente": params.get("divergente", ""),
-        "funcao_divergente": params.get("funcao_divergente", ""),
-        "so_totvs": params.get("so_totvs", ""),
-        "status_divergente": params.get("status_divergente", ""),
     }
 
 
 def _ler_filtros_demitidos(params):
     """
-    Lê apenas os filtros usados na tela de demitidos para manter o contexto explícito.
+    Lê os filtros usados na tela de demitidos.
     """
     return {
         "loja": params.get("loja", ""),
@@ -287,21 +258,17 @@ def _ler_filtros_demitidos(params):
         "cpf": params.get("cpf", ""),
         "nome": params.get("nome", ""),
         "cargo": params.get("cargo", ""),
-        "status_gestao": params.get("status_gestao", ""),
-        "status_divergente": params.get("status_divergente", ""),
     }
 
 
 def _buscar_colaboradores_ativos():
     """
-    Mantém a consulta base dos ativos em um único lugar para evitar diferenças entre telas.
+    Mantém a consulta base dos ativos em um único lugar.
     """
     return Colaborador.objects.exclude(status="D").exclude(
         cargo="AUXILIAR ADMINISTRAT"
     ).select_related(
-        "loja", "loja__coordenador", "loja__supervisor",
-        "loja_gestao", "loja_gestao__coordenador", "loja_gestao__supervisor",
-        "loja_geo"
+        "loja", "loja__coordenador", "loja__supervisor", "loja_geo"
     )
 
 
@@ -321,12 +288,6 @@ def _aplicar_filtros_colaboradores(colaboradores_qs, filtros):
             if has_null:
                 q_obj = q_obj | Q(loja_id__isnull=True)
             colaboradores_qs = colaboradores_qs.filter(q_obj)
-
-    if filtros["loja_gestao"]:
-        colaboradores_qs = colaboradores_qs.filter(
-            Q(loja_gestao__nome_gestao__icontains=filtros["loja_gestao"])
-            | Q(loja_gestao__nome_referencia__icontains=filtros["loja_gestao"])
-        )
 
     if filtros["re"]:
         re_list = [r.strip() for r in filtros["re"].split(",") if r.strip()]
@@ -400,49 +361,17 @@ def _aplicar_filtros_colaboradores(colaboradores_qs, filtros):
                 q_obj = q_obj | Q(status__isnull=True) | Q(status="")
             colaboradores_qs = colaboradores_qs.filter(q_obj)
 
-    if filtros["status_gestao"]:
-        status_list = [s.strip() for s in filtros["status_gestao"].split(",") if s.strip()]
-        if status_list:
-            has_null = "null" in status_list
-            vals = [s for s in status_list if s != "null"]
-            q_obj = Q()
-            if vals:
-                q_obj = Q(status_gestao__in=vals)
-            if has_null:
-                q_obj = q_obj | Q(status_gestao__isnull=True) | Q(status_gestao="")
-            colaboradores_qs = colaboradores_qs.filter(q_obj)
-
-    if filtros["funcao_divergente"] == "S":
-        ids_funcao_divergente = [
-            colaborador.id
-            for colaborador in colaboradores_qs
-            if funcao_esta_divergente(colaborador)
-        ]
-        colaboradores_qs = colaboradores_qs.filter(id__in=ids_fungent_divergente if 'ids_fungent_divergente' in locals() else ids_funcao_divergente)
-
-    if filtros["divergente"] == "S":
-        colaboradores_qs = colaboradores_qs.exclude(status="A").exclude(
-            loja__dispensa_gestao_pessoas=True,
+    if filtros.get("divergente") == "S":
+        colaboradores_qs = colaboradores_qs.exclude(
+            loja__dispensa_divergencia_ponto=True,
         ).filter(
             loja__isnull=False,
-        ).filter(
-            Q(loja_gestao__isnull=False) | Q(loja_geo__isnull=False)
+            loja_geo__isnull=False,
         )
         ids_divergentes = [
             colaborador.id for colaborador in colaboradores_qs if colaborador.is_divergente
         ]
         colaboradores_qs = colaboradores_qs.filter(id__in=ids_divergentes)
-
-    if filtros["so_totvs"] == "S":
-        colaboradores_qs = colaboradores_qs.exclude(
-            loja__dispensa_gestao_pessoas=True,
-        ).filter(
-            loja__isnull=False,
-            loja_gestao__isnull=True,
-        )
-
-    if filtros["status_divergente"] == "S":
-        colaboradores_qs = colaboradores_qs.filter(_filtro_status_divergente_ativo())
 
     return colaboradores_qs
 
@@ -518,23 +447,8 @@ def _aplicar_filtros_demitidos(colaboradores_qs, filtros):
                 q_obj = q_obj | Q(nome__isnull=True) | Q(nome="")
             colaboradores_qs = colaboradores_qs.filter(q_obj)
 
-    if filtros["cargo"]:
+    if filtros.get("cargo"):
         colaboradores_qs = colaboradores_qs.filter(cargo__iexact=filtros["cargo"])
-
-    if filtros["status_gestao"]:
-        status_list = [s.strip() for s in filtros["status_gestao"].split(",") if s.strip()]
-        if status_list:
-            has_null = "null" in status_list
-            vals = [s for s in status_list if s != "null"]
-            q_obj = Q()
-            if vals:
-                q_obj = Q(status_gestao__in=vals)
-            if has_null:
-                q_obj = q_obj | Q(status_gestao__isnull=True) | Q(status_gestao="")
-            colaboradores_qs = colaboradores_qs.filter(q_obj)
-
-    if filtros["status_divergente"] == "S":
-        colaboradores_qs = colaboradores_qs.filter(_filtro_status_divergente_demitido())
 
     return colaboradores_qs
 
@@ -570,62 +484,13 @@ def _buscar_cargos_demitidos():
 
 
 def _buscar_status_gestao_ativos():
-    """
-    Monta opções de status da Gestão usando apenas registros ativos exibidos na tela principal.
-    """
-    status_gestao_unicos = Colaborador.objects.exclude(status="D").exclude(
-        cargo="AUXILIAR ADMINISTRAT"
-    ).values_list("status_gestao", flat=True)
-    return sorted(
-        set(
-            status.strip().upper()
-            for status in status_gestao_unicos
-            if status and status.strip()
-        )
-    )
-
+    return []
 
 def _contar_status_divergentes_ativos():
-    """
-    Calcula o total do atalho de status divergente para mostrar o indicador na tela de ativos.
-    """
-    return Colaborador.objects.exclude(status="D").exclude(
-        cargo="AUXILIAR ADMINISTRAT"
-    ).filter(_filtro_status_divergente_ativo()).count()
-
+    return 0
 
 def _contar_status_divergentes_demitidos():
-    """
-    Calcula o total do atalho de status divergente para mostrar o indicador na tela de demitidos.
-    """
-    return Colaborador.objects.filter(status="D").exclude(
-        cargo="AUXILIAR ADMINISTRAT"
-    ).filter(_filtro_status_divergente_demitido()).count()
-
-
-def _filtro_status_divergente_ativo():
-    """
-    Reúne as condições de status divergente dos ativos para evitar copiar a mesma regra.
-    """
-    return (
-        Q(status__in=["", "A", "F"])
-        & (
-            Q(status_gestao__icontains="DESLIG")
-            | Q(status_gestao__icontains="DEMIT")
-            | Q(status_gestao__icontains="ENCERRADO")
-        )
-    )
-
-
-def _filtro_status_divergente_demitido():
-    """
-    Reúne as condições de status divergente dos demitidos para evitar copiar a mesma regra.
-    """
-    return (
-        Q(status_gestao__isnull=True)
-        | Q(status_gestao="")
-        | (~Q(status_gestao__icontains="DEMIT"))
-    )
+    return 0
 
 
 @api_view(["GET"])
@@ -657,7 +522,6 @@ def colaborador_filtro_opcoes(request):
         today = date.today()
 
         coordenador_val = request.GET.get("coordenador", "")
-        status_gestao_val = request.GET.get("status_gestao", "")
         data_filtro = request.GET.get("data_filtro", "")
         data_fim = request.GET.get("data_fim", "")
         re_val = request.GET.get("re", "")
@@ -674,7 +538,7 @@ def colaborador_filtro_opcoes(request):
             qs_coord,
             search_query="",
             coordenador_query="",
-            status_gestao_query=status_gestao_val,
+            status_folha_query="",
             re_query=re_val,
             nome_query=nome_val,
         )
@@ -690,29 +554,6 @@ def colaborador_filtro_opcoes(request):
         coordenadores_list = sorted(list(coords_set))
         if has_null_coord:
             coordenadores_list.append("null")
-
-        # 4. Opções de Status de Gestão (ignora a seleção de Status Gestão)
-        qs_sg = _buscar_colaboradores_com_termino()
-        qs_sg = _filtrar_terminos_queryset(
-            qs_sg,
-            search_query="",
-            coordenador_query=coordenador_val,
-            status_gestao_query="",
-            re_query=re_val,
-            nome_query=nome_val,
-        )
-        proc_sg = _processar_colaboradores_termino(qs_sg, today, data_filtro, data_fim, calcular_ausencias=False)
-        sg_set = set()
-        has_null_sg = False
-        for item in proc_sg:
-            colab = item["colaborador"]
-            if colab.status_gestao:
-                sg_set.add(colab.status_gestao.strip().upper())
-            else:
-                has_null_sg = True
-        status_gestao_list = sorted(list(sg_set))
-        if has_null_sg:
-            status_gestao_list.append("null")
 
     elif is_demitido:
         filtros_base = _ler_filtros_demitidos(request.GET)
@@ -736,17 +577,6 @@ def colaborador_filtro_opcoes(request):
         has_null_loja = qs_loja.filter(loja__isnull=True).exists()
         if has_null_loja:
             lojas_list.append({"id": "null", "nome_totvs": "(Vazio)"})
-
-        # 4. Opções de Status Gestão
-        filtros_sg = filtros_base.copy()
-        filtros_sg["status_gestao"] = ""
-        qs_sg = Colaborador.objects.filter(status="D").exclude(cargo="AUXILIAR ADMINISTRAT").select_related("loja")
-        qs_sg = _aplicar_filtros_demitidos(qs_sg, filtros_sg)
-        sg_set = set(qs_sg.values_list("status_gestao", flat=True).distinct())
-        status_gestao_list = sorted(list(s.strip().upper() for s in sg_set if s and s.strip()))
-        has_null_sg = qs_sg.filter(Q(status_gestao__isnull=True) | Q(status_gestao="")).exists()
-        if has_null_sg:
-            status_gestao_list.append("null")
 
     else:  # ativos
         filtros_base = _ler_filtros_colaboradores(request.GET)
@@ -781,17 +611,6 @@ def colaborador_filtro_opcoes(request):
         has_null_status = qs_st.filter(Q(status__isnull=True) | Q(status="")).exists()
         if has_null_status:
             status_list.append("null")
-
-        # 5. Opções de Status Gestão
-        filtros_sg = filtros_base.copy()
-        filtros_sg["status_gestao"] = ""
-        qs_sg = _buscar_colaboradores_ativos()
-        qs_sg = _aplicar_filtros_colaboradores(qs_sg, filtros_sg)
-        sg_set = set(qs_sg.values_list("status_gestao", flat=True).distinct())
-        status_gestao_list = sorted(list(s.strip().upper() for s in sg_set if s and s.strip()))
-        has_null_sg = qs_sg.filter(Q(status_gestao__isnull=True) | Q(status_gestao="")).exists()
-        if has_null_sg:
-            status_gestao_list.append("null")
 
     return Response({
         "res": [{"value": r, "label": r} for r in res_list],
@@ -866,7 +685,7 @@ def colaborador_detail_update_api(request, pk):
     como cargo, função na gestão, status ou datas contratuais.
     """
     colaborador = get_object_or_404(
-        Colaborador.objects.select_related("loja", "loja_gestao", "loja_geo"),
+        Colaborador.objects.select_related("loja", "loja_geo"),
         pk=pk,
     )
 
@@ -881,12 +700,6 @@ def colaborador_detail_update_api(request, pk):
             if novo_cargo:
                 Cargo.objects.get_or_create(nome=novo_cargo)
                 colaborador.cargo = novo_cargo
-
-        if "funcao_gestao" in data:
-            colaborador.funcao_gestao = data["funcao_gestao"]
-
-        if "status_gestao" in data:
-            colaborador.status_gestao = data["status_gestao"]
 
         if "data_admissao" in data and data["data_admissao"]:
             colaborador.data_admissao = data["data_admissao"]

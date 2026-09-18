@@ -130,15 +130,10 @@ class Loja(models.Model):
         max_length=120,
         blank=True,
     )
-    nome_gestao = models.CharField(
-        "Nome Gestão",
-        max_length=120,
-        blank=True,
-    )
-    dispensa_gestao_pessoas = models.BooleanField(
-        "Dispensa Gestão de Pessoas",
+    dispensa_divergencia_ponto = models.BooleanField(
+        "Dispensa Divergência Ponto (GeoVictoria)",
         default=False,
-        help_text="Marque quando a loja/centro de custo não tiver correspondência direta na planilha de Gestão de Pessoas.",
+        help_text="Marque quando a loja for administrativa ou de apoio volante para não acusar divergência com o ponto físico da GeoVictoria.",
     )
     nome_totvs = models.CharField(
         "Nome TOTVS",
@@ -180,12 +175,6 @@ class Loja(models.Model):
         max_length=20,
         choices=STATUS_CHOICES,
         default="ATIVA",
-    )
-    # Por que existe: Guarda a quantidade de colaboradores ativos calculada diretamente
-    # a partir da planilha de Gestão de Pessoas (aba Relação de funcionários).
-    headcount_real = models.IntegerField(
-        "Headcount Real (Gestão)",
-        default=0,
     )
     geovictoria_sincronizado_em = models.DateTimeField(
         "Última Sincronização GeoVictoria",

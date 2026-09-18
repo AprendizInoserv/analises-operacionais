@@ -46,7 +46,6 @@ interface FiltroOpcoes {
   lojas: { id: string; nome_referencia: string }[];
   coordenadores: string[];
   regioes: string[];
-  status_gestao: string[];
 }
 
 interface StatsAusencias {
@@ -68,7 +67,6 @@ export default function Ausencias() {
   const [filtroLoja, setFiltroLoja] = useState('');
   const [filtroCoordenador, setFiltroCoordenador] = useState('');
   const [filtroRegiao, setFiltroRegiao] = useState('');
-  const [filtroStatusGestao, setFiltroStatusGestao] = useState('');
   const [buscaText, setBuscaText] = useState('');
   const [dataInicio, setDataInicio] = useState(() => {
     const d = new Date();
@@ -87,7 +85,6 @@ export default function Ausencias() {
     lojas: [],
     coordenadores: [],
     regioes: [],
-    status_gestao: []
   });
 
   // Dados retornados da API
@@ -141,7 +138,6 @@ export default function Ausencias() {
         if (filtroLoja) params.append('loja', filtroLoja);
         if (filtroCoordenador) params.append('coordenador', filtroCoordenador);
         if (filtroRegiao) params.append('regiao', filtroRegiao);
-        if (filtroStatusGestao) params.append('status_gestao', filtroStatusGestao);
         if (buscaText.trim()) params.append('search', buscaText.trim());
 
         const response = await api.get(`/colaboradores/ausencias/analise/?${params.toString()}`);
@@ -178,7 +174,6 @@ export default function Ausencias() {
     setFiltroLoja('');
     setFiltroCoordenador('');
     setFiltroRegiao('');
-    setFiltroStatusGestao('');
     setBuscaText('');
     const d = new Date();
     d.setDate(d.getDate() - 30);
@@ -197,7 +192,6 @@ export default function Ausencias() {
     if (filtroLoja) params.append('loja', filtroLoja);
     if (filtroCoordenador) params.append('coordenador', filtroCoordenador);
     if (filtroRegiao) params.append('regiao', filtroRegiao);
-    if (filtroStatusGestao) params.append('status_gestao', filtroStatusGestao);
     if (buscaText.trim()) params.append('search', buscaText.trim());
     if (activeTab !== 'suspensoes') {
       params.append('filtro_tabela', filtroTabela);
@@ -326,25 +320,6 @@ export default function Ausencias() {
                 value={filtroRegiao}
                 onChange={setFiltroRegiao}
                 placeholder="Selecionar Região..."
-                multiple={true}
-              />
-            )}
-          </div>
-
-          {/* Status Gestão */}
-          <div className="space-y-1.5">
-            <label className="block text-[10px] font-bold text-neutral-500 uppercase">Status Gestão</label>
-            {loadingFilters ? (
-              <div className="h-9 bg-neutral-100 dark:bg-neutral-800 animate-pulse rounded-lg" />
-            ) : (
-              <SearchableSelect
-                options={[
-                  { value: "", label: "Todos os Status" },
-                  ...(filtroOpcoes.status_gestao || []).map(s => ({ value: s, label: s }))
-                ]}
-                value={filtroStatusGestao}
-                onChange={setFiltroStatusGestao}
-                placeholder="Selecionar Status..."
                 multiple={true}
               />
             )}
@@ -657,7 +632,7 @@ export default function Ausencias() {
                   <th className="p-4">Loja</th>
                   <th className="p-4">Coordenador</th>
                   <th className="p-4">Supervisor</th>
-                  <th className="p-4">Status Gestão</th>
+                  <th className="p-4">Situação Folha</th>
                   <th className="p-4 text-center w-16">Faltas</th>
                   <th className="p-4 text-center w-16">Atestados</th>
                   <th className="p-4 text-center w-24">Faltas+Atestados</th>

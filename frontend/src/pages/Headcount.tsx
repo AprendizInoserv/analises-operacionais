@@ -35,7 +35,7 @@ interface HeadcountRow {
  * Página de Análise de Headcount por Loja (Versão Paginada para Lojas Ativas).
  * 
  * Por que existe: Permite auditar de forma individualizada o quadro orçado (Quadro Estimado do cadastro da loja)
- * contra a alocação real de colaboradores na planilha de Gestão de Pessoas.
+ * contra a alocação real de colaboradores ativos na folha TOTVS SRA (calculado dinamicamente).
  * Filtra apenas lojas ativas, opera em tempo real (sem filtros de data) e suporta paginação para alta performance.
  */
 export default function Headcount() {
@@ -304,7 +304,7 @@ export default function Headcount() {
       {/* Cabeçalho */}
       <div>
         <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-50">Auditoria de Headcount de Lojas Ativas</h1>
-        <p className="text-sm text-neutral-500 font-medium">Comparação individual do Quadro Estimado da loja física vs. alocados na Gestão de Pessoas</p>
+        <p className="text-sm text-neutral-500 font-medium">Comparação individual do Quadro Estimado da loja física vs. colaboradores ativos no TOTVS (SRA)</p>
       </div>
 
       {errorMsg && (
@@ -374,10 +374,10 @@ export default function Headcount() {
           </div>
         </div>
 
-        {/* Quadro Gestão */}
+        {/* Quadro Planejado */}
         <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm flex items-center justify-between">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">Quadro Gestão Total</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">Quadro Planejado Total</span>
             <span className="text-2xl font-extrabold font-mono text-neutral-950 dark:text-neutral-50 block">
               {loading ? '...' : kpis.total_planejado}
             </span>
@@ -413,7 +413,7 @@ export default function Headcount() {
         <HelpCircle className="h-5 w-5 text-neutral-400 shrink-0 mt-0.5" />
         <div>
           <span className="font-bold text-neutral-800 dark:text-neutral-300 block mb-0.5">Critérios de Elegibilidade:</span>
-          <span>Considera colaboradores com os status <strong>ATIVO</strong> e <strong>AVISO</strong>. No caso específico de lojas do grupo <strong>ATACADÃO</strong>, o status <strong>FÉRIAS</strong> também soma no real. Os limites planejados vêm diretamente do campo Quadro cadastrado na Loja física.</span>
+          <span>Calculado dinamicamente a partir dos colaboradores cadastrados na folha TOTVS SRA (campo Sit. Folha ativo). No caso específico de lojas do cliente <strong>ATACADÃO</strong>, colaboradores em <strong>FÉRIAS (F)</strong> também somam no headcount real. Os limites planejados vêm diretamente do campo Quadro cadastrado na filial.</span>
         </div>
       </div>
 
@@ -427,7 +427,7 @@ export default function Headcount() {
                 <th className="py-4 px-4">Cliente</th>
                 <th className="py-4 px-4">Centro de Custo</th>
                 <th className="py-4 px-4 text-center">Ativos TOTVS</th>
-                <th className="py-4 px-4 text-center">Quadro Gestão</th>
+                <th className="py-4 px-4 text-center">Quadro Planejado</th>
                 <th
                   onClick={handleToggleOrdenacaoDesvio}
                   className="py-4 px-4 text-center cursor-pointer select-none hover:bg-neutral-100 dark:hover:bg-neutral-855 transition-colors group"

@@ -34,6 +34,8 @@ export interface DetalhamentoCusto {
   insalubridade_banheirista_total?: string;
   adic_not?: string;
   adicional_noturno_total?: string;
+  dsr?: string;
+  dsr_total?: string;
   total: string;
 }
 
@@ -45,6 +47,7 @@ export interface ItemEscopo {
   turno: string;
   turno_display: string;
   quantidade: number;
+  dsr_valor_fixo?: string;
   detalhamento: DetalhamentoCusto | null;
 }
 
@@ -73,6 +76,7 @@ interface EscoposTableProps {
 const obterInsalubridadeFixa = (det: any) => det.insal_fixa || det.insalubridade_fixa_total || "0.00";
 const obterInsalubridadeBanheirista = (det: any) => det.insal_ban || det.insalubridade_banheirista_total || "0.00";
 const obterAdicionalNoturno = (det: any) => det.adic_not || det.adicional_noturno_total || "0.00";
+const obterDsr = (det: any) => det.dsr || det.dsr_total || "0.00";
 
 /**
  * Tabela de Escopos Mensais com Edição Inline.
@@ -100,6 +104,7 @@ export default function EscoposTable({
   const [editCargo, setEditCargo] = useState('');
   const [editTurno, setEditTurno] = useState('DIURNO');
   const [editQuantidade, setEditQuantidade] = useState(1);
+  const [editDsr, setEditDsr] = useState('');
   const [savingItem, setSavingItem] = useState(false);
 
   const turnosOpcoes = [
@@ -120,6 +125,7 @@ export default function EscoposTable({
     setEditCargo(item.cargo);
     setEditTurno(item.turno);
     setEditQuantidade(item.quantidade);
+    setEditDsr(item.dsr_valor_fixo || (item.detalhamento ? obterDsr(item.detalhamento) : '0.00'));
   };
 
   // Cancela a edição inline (removendo placeholders se existirem)
@@ -156,7 +162,8 @@ export default function EscoposTable({
         escopo_id: escopoId,
         cargo_id: editCargo,
         turno: editTurno,
-        quantidade: editQuantidade
+        quantidade: editQuantidade,
+        dsr_valor_fixo: editDsr ? editDsr.replace(',', '.') : '0.00',
       };
 
       const response = await api.post('/escopos/api/item/save/', payload);
@@ -213,6 +220,7 @@ export default function EscoposTable({
           turno: 'DIURNO',
           turno_display: 'Diurno',
           quantidade: 1,
+          dsr_valor_fixo: '0.00',
           detalhamento: null
         };
 
@@ -228,6 +236,7 @@ export default function EscoposTable({
     setEditCargo(cargosOpcoes[0]?.id || '');
     setEditTurno('DIURNO');
     setEditQuantidade(1);
+    setEditDsr('0.00');
   };
 
 
@@ -307,6 +316,7 @@ export default function EscoposTable({
                     <th className="py-3.5 px-5 text-right">Insal. Fixa</th>
                     <th className="py-3.5 px-5 text-right">Insal. Banho</th>
                     <th className="py-3.5 px-5 text-right">Adic. Noturno</th>
+                    <th className="py-3.5 px-5 text-right">DSR Var.</th>
                     <th className="py-3.5 px-5 text-right">Total</th>
                     <th className="py-3.5 px-5 w-20 text-center">Ações</th>
                   </tr>
@@ -354,6 +364,18 @@ export default function EscoposTable({
                           <td className="py-3 px-5 text-right text-neutral-400 align-middle">-</td>
                           <td className="py-3 px-5 text-right text-neutral-400 align-middle">-</td>
                           <td className="py-3 px-5 text-right text-neutral-400 align-middle">-</td>
+                          {/* Campo de DSR Variável Fixo (R$) para o cargo */}
+                          <td className="py-3 px-5 align-middle">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={editDsr}
+                              onChange={(e) => setEditDsr(e.target.value)}
+                              placeholder="0.00"
+                              className="w-full p-1.5 border border-neutral-200 dark:border-neutral-850 rounded bg-white dark:bg-neutral-900 text-xs text-right font-mono"
+                            />
+                          </td>
                           <td className="py-3 px-5 text-right text-neutral-400 align-middle">-</td>
                           <td className="py-3 px-5 align-middle text-center">
                             <div className="flex items-center justify-center gap-1.5">
@@ -396,10 +418,11 @@ export default function EscoposTable({
                             <td className="py-3.5 px-5 text-right text-neutral-700 font-mono">{formatCurrency(obterInsalubridadeFixa(item.detalhamento))}</td>
                             <td className="py-3.5 px-5 text-right text-neutral-700 font-mono">{formatCurrency(obterInsalubridadeBanheirista(item.detalhamento))}</td>
                             <td className="py-3.5 px-5 text-right text-neutral-700 font-mono">{formatCurrency(obterAdicionalNoturno(item.detalhamento))}</td>
+                            <td className="py-3.5 px-5 text-right text-neutral-700 font-mono">{formatCurrency(obterDsr(item.detalhamento))}</td>
                             <td className="py-3.5 px-5 text-right font-bold text-neutral-900 dark:text-neutral-100 font-mono">{formatCurrency(item.detalhamento.total)}</td>
                           </>
                         ) : (
-                          <td colSpan={5} className="py-3.5 px-5 text-center text-red-500 font-semibold bg-red-500/5">
+                          <td colSpan={6} className="py-3.5 px-5 text-center text-red-500 font-semibold bg-red-500/5">
                             Sem tabela salarial para o cargo nesta competência.
                           </td>
                         )}
@@ -430,7 +453,7 @@ export default function EscoposTable({
 
                   {esc.itens_com_estimativa.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="py-6 text-center text-neutral-400 italic">
+                      <td colSpan={10} className="py-6 text-center text-neutral-400 italic">
                         Escopo sem cargos registrados. Clique em "Novo Item" abaixo para registrar.
                       </td>
                     </tr>
@@ -440,17 +463,18 @@ export default function EscoposTable({
             </div>
 
             {/* Rodapé do Bloco com Botão de Novo Item e Valor Estimado */}
-            <div className="p-4 border-t border-neutral-100 dark:border-neutral-850 flex items-center justify-between bg-neutral-50/30 dark:bg-neutral-850/10">
+            <div className="p-4 border-t border-neutral-100 dark:border-neutral-850 flex flex-wrap items-center justify-between gap-3 bg-neutral-50/30 dark:bg-neutral-850/10">
               <button
                 type="button"
                 onClick={() => handleAddNewItemPlaceholder(esc.id)}
-                className="inline-flex items-center gap-1 px-3 py-1.5 border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-850 text-neutral-700 dark:text-neutral-300 rounded-lg font-bold text-xs cursor-pointer transition-colors"
+                className="inline-flex items-center gap-1 px-3 py-1.5 border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-850 text-neutral-700 dark:text-neutral-300 rounded-lg font-bold text-xs cursor-pointer transition-colors shadow-xs"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Novo Item
               </button>
+
               <div className="text-right">
-                <span className="text-[10px] text-neutral-450 font-bold uppercase tracking-wider block">
+                <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider block">
                   Total da Estimativa do Escopo
                 </span>
                 <strong className="text-sm font-extrabold text-neutral-900 dark:text-neutral-100 font-mono">

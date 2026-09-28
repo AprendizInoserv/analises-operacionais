@@ -23,6 +23,7 @@ urlpatterns = [
     ),
     path("escopos/exportar/", views.escopo_exportar_excel, name="escopo_exportar_excel"),
     path("escopos/<int:pk>/excluir/", views.escopo_delete, name="excluir_escopo"),
+    path("escopos/<int:pk>/dsr/", views.api_escopo_update_dsr, name="api_escopo_update_dsr"),
     path("escopos/api/item/save/", views.api_item_escopo_save, name="api_item_escopo_save"),
     path("escopos/api/item/<int:pk>/delete/", views.api_item_escopo_delete, name="api_item_escopo_delete"),
     path("escopos/lojas-sem-escopo/", views.lojas_sem_escopo, name="lojas_sem_escopo"),

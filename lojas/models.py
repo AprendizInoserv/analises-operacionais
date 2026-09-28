@@ -505,6 +505,13 @@ class EscopoMensal(models.Model):
     )
     ano = models.PositiveIntegerField("Ano")
     mes = models.PositiveSmallIntegerField("Mês", choices=MESES_CHOICES)
+    dsr_valor_fixo = models.DecimalField(
+        "DSR Variável Fixo (R$)",
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Valor fixo orçado para DSR variável no escopo deste mês.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -571,6 +578,13 @@ class ItemEscopoMensal(models.Model):
     )
     turno = models.CharField("Turno", max_length=10, choices=TURNO_CHOICES)
     quantidade = models.PositiveIntegerField("Quantidade", default=1)
+    dsr_valor_fixo = models.DecimalField(
+        "DSR Variável Fixo (R$)",
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Valor fixo orçado para DSR variável deste cargo no mês.",
+    )
 
     class Meta:
         verbose_name = "Item do escopo mensal"
@@ -664,13 +678,21 @@ class ItemEscopoMensal(models.Model):
                 PERCENTUAL_ADICIONAL_NOTURNO / Decimal("100")
             )
         adic_noturno_total = quantidade * adic_noturno_unit
+        dsr_total = self.dsr_valor_fixo or Decimal("0.00")
 
-        total = base_total + insal_fixa_total + insal_ban_total + adic_noturno_total
+        total = (
+            base_total
+            + insal_fixa_total
+            + insal_ban_total
+            + adic_noturno_total
+            + dsr_total
+        )
         return {
             "base_total": base_total,
             "insalubridade_fixa_total": insal_fixa_total,
             "insalubridade_banheirista_total": insal_ban_total,
             "adicional_noturno_total": adic_noturno_total,
+            "dsr_total": dsr_total,
             "total": total,
         }
 

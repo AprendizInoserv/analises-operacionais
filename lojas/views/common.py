@@ -46,10 +46,14 @@ def replicar_do_mes_anterior_se_existir(escopo_mensal):
                 cargo=item_anterior.cargo,
                 turno=item_anterior.turno,
                 quantidade=item_anterior.quantidade,
+                dsr_valor_fixo=item_anterior.dsr_valor_fixo,
             )
         )
     if itens_para_criar:
         ItemEscopoMensal.objects.bulk_create(itens_para_criar)
+    if escopo_anterior.dsr_valor_fixo and (not escopo_mensal.dsr_valor_fixo or escopo_mensal.dsr_valor_fixo == Decimal("0.00")):
+        escopo_mensal.dsr_valor_fixo = escopo_anterior.dsr_valor_fixo
+        escopo_mensal.save(update_fields=["dsr_valor_fixo"])
     return True
 
 
@@ -123,6 +127,7 @@ def escopo_duplicar_proximo_mes_para_todas_as_lojas():
                 loja=loja,
                 ano=ano_d,
                 mes=mes_d,
+                dsr_valor_fixo=esc_orig.dsr_valor_fixo,
             )
             # Copia do mês anterior ao destino (= origem que já sabemos existir para esta loja)
             replicar_do_mes_anterior_se_existir(novo)

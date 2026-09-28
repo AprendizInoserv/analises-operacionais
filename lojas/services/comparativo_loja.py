@@ -106,6 +106,7 @@ class ResultadoComparativoLoja:
     escopo_insalubridade_fixa_total: Decimal = Decimal("0.00")
     escopo_insalubridade_banheirista_total: Decimal = Decimal("0.00")
     escopo_adicional_noturno_total: Decimal = Decimal("0.00")
+    escopo_dsr_total: Decimal = Decimal("0.00")
     escopo_total: Decimal = Decimal("0.00")
     escopo_itens_sem_estimativa: int = 0
     escopo_meses_sem_registro: List[Tuple[int, int]] = field(default_factory=list)
@@ -277,6 +278,7 @@ def montar_resultado_comparativo(
     )
 
     competencias_com_folha_da_loja = set(r.dt_arq for r in resumos)
+    escopos_avaliados = []
 
     for ano, mes in competencias:
         # Regra: Se esse mês possui dados de folha de pagamento importados no banco,
@@ -312,8 +314,10 @@ def montar_resultado_comparativo(
                 loja=loja,
                 ano=ano,
                 mes=mes,
+                dsr_valor_fixo=escopo_fallback.dsr_valor_fixo,
             )
             escopo.loja = loja
+            escopos_avaliados.append(escopo)
             escala_por_escopo_id[escopo_fallback.pk] = escala_insalubridade_fixa_para_escopo(escopo_fallback)
             
             # Cria cópias dos itens em memória vinculados ao escopo virtual
@@ -324,17 +328,24 @@ def montar_resultado_comparativo(
                     cargo=item_orig.cargo,
                     turno=item_orig.turno,
                     quantidade=item_orig.quantidade,
+                    dsr_valor_fixo=item_orig.dsr_valor_fixo,
                 )
                 itens_todos.append(item_fake)
         else:
             # Garante que a loja pré-carregada seja usada nos métodos internos
             escopo.loja = loja
+            escopos_avaliados.append(escopo)
             escala_por_escopo_id[escopo.pk] = escala_insalubridade_fixa_para_escopo(escopo)
             itens_todos.extend(list(escopo.itens.all()))
 
     resultado.escopo_meses_sem_registro = meses_sem_escopo
 
+    # Compatibilidade com escopos legados que possuam dsr_valor_fixo no cabeçalho
+    legacy_dsr = sum((e.dsr_valor_fixo or Decimal("0.00")) for e in escopos_avaliados)
+    resultado.escopo_dsr_total += legacy_dsr
+
     if not itens_todos:
+        resultado.escopo_total += legacy_dsr
         return resultado
 
     cache_regional, cache_minimo_br = montar_caches_salario_para_itens(itens_todos)
@@ -355,7 +366,10 @@ def montar_resultado_comparativo(
             "insalubridade_banheirista_total"
         ]
         resultado.escopo_adicional_noturno_total += det["adicional_noturno_total"]
+        resultado.escopo_dsr_total += det.get("dsr_total", Decimal("0.00"))
         resultado.escopo_total += det["total"]
+
+    resultado.escopo_total += legacy_dsr
 
     # =========================================================================
     # DETALHAMENTO DE COLABORADORES POR CATEGORIA (Rubricas detalhadas)

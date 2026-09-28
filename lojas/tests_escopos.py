@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 from io import BytesIO
 
 from django.contrib.auth.models import User
@@ -7,7 +8,7 @@ import pandas as pd
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from lojas.models import Cargo, EscopoMensal, ItemEscopoMensal, Loja
+from lojas.models import Cargo, EscopoMensal, ItemEscopoMensal, Loja, Salario
 
 
 class EscopoExportarExcelTests(TestCase):
@@ -307,4 +308,85 @@ class EscopoCreateTests(TestCase):
         response = self.client.post("/escopos/api/item/save/", payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("Já existe", response.data.get("error", ""))
+
+    def test_escopo_create_com_dsr_e_update_dsr(self):
+        """Testa criação de escopo com DSR fixo e endpoint de atualização rápida de DSR."""
+        payload = {
+            "loja": str(self.loja.id),
+            "ano": 2026,
+            "mes": 11,
+            "dsr_valor_fixo": "350.50",
+            "itens": [
+                {"cargo": str(self.cargo_aux.id), "turno": "DIURNO", "quantidade": 2},
+            ],
+        }
+        res_create = self.client.post("/escopos/novo/", payload, format="json")
+        self.assertEqual(res_create.status_code, status.HTTP_201_CREATED)
+        escopo_id = res_create.data["escopo"]["id"]
+
+        escopo = EscopoMensal.objects.get(id=escopo_id)
+        self.assertEqual(escopo.dsr_valor_fixo, Decimal("350.50"))
+
+        # Atualiza o DSR via endpoint específico /escopos/<id>/dsr/
+        res_dsr = self.client.post(
+            f"/escopos/{escopo_id}/dsr/",
+            {"dsr_valor_fixo": "600.00"},
+            format="json",
+        )
+        self.assertEqual(res_dsr.status_code, status.HTTP_200_OK)
+        self.assertTrue(res_dsr.data["success"])
+        self.assertEqual(res_dsr.data["dsr_valor_fixo"], "600.00")
+
+        escopo.refresh_from_db()
+        self.assertEqual(escopo.dsr_valor_fixo, Decimal("600.00"))
+
+    def test_item_escopo_com_dsr_variavel_por_cargo(self):
+        """Testa criação e edição de DSR variável por cargo em ItemEscopoMensal."""
+        Salario.objects.create(
+            cargo=self.cargo_aux,
+            uf=self.loja.uf,
+            ano=2026,
+            valor=Decimal("1500.00"),
+        )
+        payload = {
+            "loja": str(self.loja.id),
+            "ano": 2026,
+            "mes": 12,
+            "itens": [
+                {
+                    "cargo": str(self.cargo_aux.id),
+                    "turno": "DIURNO",
+                    "quantidade": 2,
+                    "dsr_valor_fixo": "150.00",
+                },
+            ],
+        }
+        res_create = self.client.post("/escopos/novo/", payload, format="json")
+        self.assertEqual(res_create.status_code, status.HTTP_201_CREATED)
+        escopo_id = res_create.data["escopo"]["id"]
+
+        item = ItemEscopoMensal.objects.get(escopo_mensal_id=escopo_id)
+        self.assertEqual(item.dsr_valor_fixo, Decimal("150.00"))
+
+        # Atualiza o item via endpoint /escopos/api/item/save/ alterando o DSR
+        save_payload = {
+            "id": str(item.id),
+            "escopo_id": escopo_id,
+            "cargo_id": str(self.cargo_aux.id),
+            "turno": "DIURNO",
+            "quantidade": 2,
+            "dsr_valor_fixo": "275.50",
+        }
+        res_save = self.client.post("/escopos/api/item/save/", save_payload, format="json")
+        self.assertEqual(res_save.status_code, status.HTTP_200_OK)
+        self.assertTrue(res_save.data.get("success"))
+
+        item.refresh_from_db()
+        self.assertEqual(item.dsr_valor_fixo, Decimal("275.50"))
+
+        # Testa se a estimativa detalhada reflete o DSR por cargo
+        det = item.get_estimativa_detalhada()
+        self.assertIsNotNone(det)
+        self.assertEqual(det["dsr_total"], Decimal("275.50"))
+
 

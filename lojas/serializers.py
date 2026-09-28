@@ -142,6 +142,7 @@ class ItemEscopoMensalSerializer(serializers.ModelSerializer):
             "turno",
             "turno_display",
             "quantidade",
+            "dsr_valor_fixo",
             "detalhamento",
         ]
 
@@ -175,6 +176,7 @@ class ItemEscopoMensalSerializer(serializers.ModelSerializer):
             data["escopo_mensal"] = str(data["escopo_mensal"])
         if "cargo" in data and data["cargo"] is not None:
             data["cargo"] = str(data["cargo"])
+        data["dsr_valor_fixo"] = str(instance.dsr_valor_fixo or "0.00")
         return data
 
 class EscopoMensalSerializer(serializers.ModelSerializer):
@@ -195,6 +197,7 @@ class EscopoMensalSerializer(serializers.ModelSerializer):
             "loja_nome",
             "ano",
             "mes",
+            "dsr_valor_fixo",
             "itens_com_estimativa",
             "total_estimativa_escopo",
         ]
@@ -227,7 +230,8 @@ class EscopoMensalSerializer(serializers.ModelSerializer):
 
     def get_total_estimativa_escopo(self, obj):
         """
-        Calcula o total da estimativa financeira acumulada para este escopo.
+        Calcula o total da estimativa financeira acumulada para este escopo,
+        incluindo o valor fixo de DSR variável orçado para o mês.
         """
         itens = obj.itens.all()
         cache_reg = self.context.get("cache_salarios_regional")
@@ -247,6 +251,8 @@ class EscopoMensalSerializer(serializers.ModelSerializer):
             )
             if det:
                 total_acumulado += det["total"]
+
+        total_acumulado += (obj.dsr_valor_fixo or Decimal("0.00"))
                 
         return str(total_acumulado)
 
@@ -259,6 +265,7 @@ class EscopoMensalSerializer(serializers.ModelSerializer):
             data["id"] = str(data["id"])
         if "loja" in data and data["loja"] is not None:
             data["loja"] = str(data["loja"])
+        data["dsr_valor_fixo"] = str(instance.dsr_valor_fixo or "0.00")
         return data
 
 

@@ -157,6 +157,13 @@ def api_item_escopo_save(request):
         item.turno = turno
     if quantidade is not None:
         item.quantidade = max(1, int(quantidade))
+    dsr_valor_fixo_raw = request.data.get("dsr_valor_fixo")
+    if dsr_valor_fixo_raw is not None:
+        try:
+            dsr_val = Decimal(str(dsr_valor_fixo_raw).replace(",", ".").strip() or "0.00")
+            item.dsr_valor_fixo = max(Decimal("0.00"), dsr_val)
+        except Exception:
+            pass
 
     item.save()
 
@@ -172,17 +179,20 @@ def api_item_escopo_save(request):
         d = i.get_estimativa_detalhada(c_reg, c_min, escala)
         if d:
             total_escopo += d["total"]
+    total_escopo += (item.escopo_mensal.dsr_valor_fixo or Decimal("0.00"))
 
     return Response({
         "success": True,
         "id": str(item.id),
         "cargo_nome": item.cargo.nome,
         "turno_display": item.get_turno_display(),
+        "dsr_valor_fixo": str(item.dsr_valor_fixo or "0.00"),
         "detalhes": {
             "base_total": str(det["base_total"]) if det else "0.00",
             "insal_fixa": str(det["insalubridade_fixa_total"]) if det else "0.00",
             "insal_ban": str(det["insalubridade_banheirista_total"]) if det else "0.00",
             "adic_not": str(det["adicional_noturno_total"]) if det else "0.00",
+            "dsr": str(det["dsr_total"]) if det else "0.00",
             "total": str(det["total"]) if det else "0.00",
         },
         "total_escopo": str(total_escopo),
@@ -206,6 +216,7 @@ def api_item_escopo_delete(request, pk):
         d = i.get_estimativa_detalhada(cache_reg, cache_min, escala)
         if d:
             total_escopo += d["total"]
+    total_escopo += (escopo.dsr_valor_fixo or Decimal("0.00"))
 
     return Response({
         "success": True,
@@ -302,25 +313,44 @@ def escopo_create(request):
             }, status=status.HTTP_400_BAD_REQUEST)
         combos_vistos.add(combo_key)
 
+        raw_dsr_item = item_data.get("dsr_valor_fixo", 0)
+        try:
+            dsr_item = Decimal(str(raw_dsr_item).replace(",", ".").strip() or "0.00")
+            if dsr_item < Decimal("0.00"):
+                dsr_item = Decimal("0.00")
+        except Exception:
+            dsr_item = Decimal("0.00")
+
         itens_validados.append({
             "cargo_id": cargo_id,
             "turno": turno,
             "quantidade": qtd,
+            "dsr_valor_fixo": dsr_item,
         })
+
+    raw_dsr = data.get("dsr_valor_fixo", 0)
+    try:
+        dsr_valor_fixo = Decimal(str(raw_dsr).replace(",", ".").strip() or "0.00")
+        if dsr_valor_fixo < Decimal("0.00"):
+            dsr_valor_fixo = Decimal("0.00")
+    except Exception:
+        dsr_valor_fixo = Decimal("0.00")
 
     try:
         with transaction.atomic():
             escopo = EscopoMensal.objects.create(
                 loja_id=loja_id,
                 ano=ano,
-                mes=mes
+                mes=mes,
+                dsr_valor_fixo=dsr_valor_fixo,
             )
             for item in itens_validados:
                 ItemEscopoMensal.objects.create(
                     escopo_mensal=escopo,
                     cargo_id=item["cargo_id"],
                     turno=item["turno"],
-                    quantidade=item["quantidade"]
+                    quantidade=item["quantidade"],
+                    dsr_valor_fixo=item["dsr_valor_fixo"],
                 )
             
             serializer = EscopoMensalSerializer(escopo)
@@ -339,6 +369,49 @@ def escopo_create(request):
             "success": False,
             "error": str(exc)
         }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["POST", "PATCH"])
+@permission_classes([IsAuthenticated, IsAdministrador])
+def api_escopo_update_dsr(request, pk):
+    """
+    Atualiza o valor fixo de DSR variável orçado para um escopo mensal específico.
+    """
+    escopo = get_object_or_404(EscopoMensal, pk=pk)
+    raw_dsr = request.data.get("dsr_valor_fixo", 0)
+    try:
+        novo_valor = Decimal(str(raw_dsr).replace(",", ".").strip() or "0.00")
+        if novo_valor < Decimal("0.00"):
+            return Response({
+                "success": False,
+                "error": "O valor do DSR não pode ser negativo."
+            }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception:
+        return Response({
+            "success": False,
+            "error": "Valor de DSR em formato inválido."
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    escopo.dsr_valor_fixo = novo_valor
+    escopo.save(update_fields=["dsr_valor_fixo"])
+
+    # Recalcula total do escopo
+    escala = escala_insalubridade_fixa_para_escopo(escopo)
+    itens_escopo = list(escopo.itens.all())
+    cache_reg, cache_min = montar_caches_salario_para_itens(itens_escopo)
+    total_escopo = Decimal("0")
+    for i in itens_escopo:
+        d = i.get_estimativa_detalhada(cache_reg, cache_min, escala)
+        if d:
+            total_escopo += d["total"]
+    total_escopo += escopo.dsr_valor_fixo
+
+    return Response({
+        "success": True,
+        "message": "DSR variável atualizado com sucesso.",
+        "dsr_valor_fixo": str(escopo.dsr_valor_fixo),
+        "total_estimativa_escopo": str(total_escopo),
+    })
 
 @api_view(["POST", "DELETE"])
 @permission_classes([IsAuthenticated, IsAdministrador])

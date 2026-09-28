@@ -8,6 +8,7 @@ from .common import (
 from .escopos import (
     api_item_escopo_delete,
     api_item_escopo_save,
+    api_escopo_update_dsr,
     escopo_create,
     escopo_delete,
     escopo_duplicar_proximo_mes,

@@ -40,8 +40,8 @@ export default function EscopoFormModal({
   const [loja, setLoja] = useState(initialLojaId);
   const [ano, setAno] = useState(new Date().getFullYear());
   const [mes, setMes] = useState(new Date().getMonth() + 1);
-  const [itens, setItens] = useState<{ cargo: string; turno: string; quantidade: number }[]>([
-    { cargo: cargosOpcoes[0]?.id || '', turno: 'DIURNO', quantidade: 1 }
+  const [itens, setItens] = useState<{ cargo: string; turno: string; quantidade: number; dsr_valor_fixo?: string }[]>([
+    { cargo: cargosOpcoes[0]?.id || '', turno: 'DIURNO', quantidade: 1, dsr_valor_fixo: '' }
   ]);
 
   const [loading, setLoading] = useState(false);
@@ -84,7 +84,7 @@ export default function EscopoFormModal({
   const handleAddItem = () => {
     const usedCargosComDiurno = new Set(itens.filter(i => i.turno === 'DIURNO').map(i => i.cargo));
     const nextCargo = cargosOpcoes.find(c => !usedCargosComDiurno.has(c.id))?.id || cargosOpcoes[0]?.id || '';
-    setItens(prev => [...prev, { cargo: nextCargo, turno: 'DIURNO', quantidade: 1 }]);
+    setItens(prev => [...prev, { cargo: nextCargo, turno: 'DIURNO', quantidade: 1, dsr_valor_fixo: '' }]);
   };
 
   // Remove um cargo específico da lista temporária do modal
@@ -94,7 +94,7 @@ export default function EscopoFormModal({
   };
 
   // Atualiza campo específico de um item da lista temporária
-  const handleItemChange = (index: number, field: 'cargo' | 'turno' | 'quantidade', value: any) => {
+  const handleItemChange = (index: number, field: 'cargo' | 'turno' | 'quantidade' | 'dsr_valor_fixo', value: any) => {
     setItens(prev => prev.map((item, i) => {
       if (i === index) {
         return { ...item, [field]: value };
@@ -150,7 +150,12 @@ export default function EscopoFormModal({
         loja,
         ano,
         mes,
-        itens
+        itens: itens.map(i => ({
+          cargo: i.cargo,
+          turno: i.turno,
+          quantidade: i.quantidade,
+          dsr_valor_fixo: i.dsr_valor_fixo ? i.dsr_valor_fixo.replace(',', '.') : '0.00'
+        }))
       };
 
       const response = await api.post('/escopos/novo/', payload);
@@ -277,7 +282,7 @@ export default function EscopoFormModal({
                 <div key={index} className="flex flex-col sm:flex-row gap-3 sm:items-end bg-neutral-50 dark:bg-neutral-850/60 p-3.5 rounded-xl border border-neutral-200/60 dark:border-neutral-800 shadow-xs">
                   <div className="flex-1">
                     <label className="block text-[10px] font-bold text-neutral-400 uppercase mb-1">
-                      Cargo / Função *
+                       Cargo / Função *
                     </label>
                     <select
                       value={item.cargo}
@@ -291,7 +296,7 @@ export default function EscopoFormModal({
                     </select>
                   </div>
 
-                  <div className="sm:w-36">
+                  <div className="sm:w-32">
                     <label className="block text-[10px] font-bold text-neutral-400 uppercase mb-1">
                       Turno *
                     </label>
@@ -306,7 +311,7 @@ export default function EscopoFormModal({
                     </select>
                   </div>
 
-                  <div className="sm:w-28">
+                  <div className="sm:w-24">
                     <label className="block text-[10px] font-bold text-neutral-400 uppercase mb-1 text-center">
                       Quantidade *
                     </label>
@@ -316,6 +321,21 @@ export default function EscopoFormModal({
                       value={item.quantidade}
                       onChange={(e) => handleItemChange(index, 'quantidade', Math.max(1, parseInt(e.target.value) || 1))}
                       className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 rounded-lg bg-white dark:bg-neutral-900 text-xs text-center text-neutral-800 dark:text-neutral-200 min-h-[38px] shadow-xs"
+                    />
+                  </div>
+
+                  <div className="sm:w-28">
+                    <label className="block text-[10px] font-bold text-neutral-400 uppercase mb-1 text-right" title="DSR variável fixo deste cargo no mês">
+                      DSR Var. (R$)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0,00"
+                      value={item.dsr_valor_fixo || ''}
+                      onChange={(e) => handleItemChange(index, 'dsr_valor_fixo', e.target.value)}
+                      className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-800 rounded-lg bg-white dark:bg-neutral-900 text-xs text-right text-neutral-800 dark:text-neutral-200 min-h-[38px] shadow-xs"
                     />
                   </div>
 

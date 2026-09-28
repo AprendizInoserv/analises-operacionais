@@ -69,6 +69,7 @@ def comparativo_loja(request):
                 "escopo_insalubridade_banheirista_total": str(resultado.escopo_insalubridade_banheirista_total),
                 "escopo_insalubridade_total": str(resultado.escopo_insalubridade_total),
                 "escopo_adicional_noturno_total": str(resultado.escopo_adicional_noturno_total),
+                "escopo_dsr_total": str(resultado.escopo_dsr_total),
                 "escopo_total": str(resultado.escopo_total),
                 "escopo_itens_sem_estimativa": resultado.escopo_itens_sem_estimativa,
                 "escopo_meses_sem_registro": resultado.escopo_meses_sem_registro,

@@ -131,12 +131,32 @@ def api_item_escopo_save(request):
             return Response({"success": False, "error": "Dados incompletos"}, status=status.HTTP_400_BAD_REQUEST)
         item = ItemEscopoMensal(escopo_mensal_id=escopo_id)
 
+    alvo_cargo_id = int(cargo_id) if cargo_id else item.cargo_id
+    alvo_turno = turno if turno else item.turno
+
+    # Valida duplicidade de item com mesmo cargo e turno no mesmo escopo
+    filtro_dup = ItemEscopoMensal.objects.filter(
+        escopo_mensal_id=item.escopo_mensal_id or escopo_id,
+        cargo_id=alvo_cargo_id,
+        turno=alvo_turno,
+    )
+    if item_id:
+        filtro_dup = filtro_dup.exclude(pk=item_id)
+    if filtro_dup.exists():
+        return Response(
+            {
+                "success": False,
+                "error": "Já existe um item cadastrado com este cargo e turno neste escopo. Combine a quantidade na linha existente.",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     if cargo_id:
         item.cargo_id = int(cargo_id)
     if turno:
         item.turno = turno
     if quantidade is not None:
-        item.quantidade = int(quantidade)
+        item.quantidade = max(1, int(quantidade))
 
     item.save()
 
@@ -197,7 +217,7 @@ def api_item_escopo_delete(request, pk):
 def escopo_create(request):
     """
     Cria um escopo mensal completo com itens associados usando controle transacional.
-    Previene integridade de dados e duplicação da mesma competência na loja.
+    Previne integridade de dados e duplicação da mesma competência na loja.
     """
     data = request.data
     loja_id = data.get("loja")
@@ -208,22 +228,99 @@ def escopo_create(request):
     if not loja_id or not ano or not mes:
         return Response({
             "success": False,
-            "error": "Lojas, ano e mês são campos obrigatórios."
+            "error": "Loja física, ano e mês da competência são campos obrigatórios."
         }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        loja_id = int(loja_id)
+        ano = int(ano)
+        mes = int(mes)
+    except (ValueError, TypeError):
+        return Response({
+            "success": False,
+            "error": "Identificador de loja, ano ou mês em formato inválido."
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    loja_obj = Loja.objects.filter(id=loja_id).first()
+    if not loja_obj:
+        return Response({
+            "success": False,
+            "error": "A loja selecionada não foi encontrada no banco de dados."
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # 1. Verifica se já existe escopo cadastrado para esta loja nesta competência
+    if EscopoMensal.objects.filter(loja_id=loja_id, ano=ano, mes=mes).exists():
+        return Response({
+            "success": False,
+            "error": f"Já existe um escopo cadastrado para a loja '{loja_obj.nome_referencia}' no período {mes:02d}/{ano}."
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # 2. Valida se há itens e se não há cargos nulos ou duplicados
+    if not itens_data:
+        return Response({
+            "success": False,
+            "error": "Adicione pelo menos um item operacional ao escopo."
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    combos_vistos = set()
+    itens_validados = []
+    for idx, item_data in enumerate(itens_data, start=1):
+        cargo_id = item_data.get("cargo")
+        turno = (item_data.get("turno") or "").strip().upper()
+        qtd_raw = item_data.get("quantidade", 1)
+
+        if not cargo_id:
+            return Response({
+                "success": False,
+                "error": f"O item {idx} não possui cargo/função selecionado."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            cargo_id = int(cargo_id)
+            qtd = int(qtd_raw)
+            if qtd < 1:
+                raise ValueError()
+        except (ValueError, TypeError):
+            return Response({
+                "success": False,
+                "error": f"Quantidade inválida no item {idx} (deve ser no mínimo 1)."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if turno not in ["DIURNO", "NOTURNO", "MISTO"]:
+            return Response({
+                "success": False,
+                "error": f"Turno inválido no item {idx}."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        combo_key = (cargo_id, turno)
+        if combo_key in combos_vistos:
+            cargo_obj = Cargo.objects.filter(id=cargo_id).first()
+            cargo_nome = cargo_obj.nome if cargo_obj else f"Cargo {cargo_id}"
+            return Response({
+                "success": False,
+                "error": f"O cargo '{cargo_nome}' no turno '{turno}' foi adicionado mais de uma vez. Combine as quantidades na mesma linha."
+            }, status=status.HTTP_400_BAD_REQUEST)
+        combos_vistos.add(combo_key)
+
+        itens_validados.append({
+            "cargo_id": cargo_id,
+            "turno": turno,
+            "quantidade": qtd,
+        })
 
     try:
         with transaction.atomic():
             escopo = EscopoMensal.objects.create(
                 loja_id=loja_id,
-                ano=int(ano),
-                mes=int(mes)
+                ano=ano,
+                mes=mes
             )
-            for item_data in itens_data:
+            for item in itens_validados:
                 ItemEscopoMensal.objects.create(
                     escopo_mensal=escopo,
-                    cargo_id=item_data.get("cargo"),
-                    turno=item_data.get("turno"),
-                    quantidade=int(item_data.get("quantidade", 1))
+                    cargo_id=item["cargo_id"],
+                    turno=item["turno"],
+                    quantidade=item["quantidade"]
                 )
             
             serializer = EscopoMensalSerializer(escopo)
@@ -235,7 +332,7 @@ def escopo_create(request):
     except IntegrityError:
         return Response({
             "success": False,
-            "error": "Já existe escopo para esta loja no ano/mês informado."
+            "error": "Erro de integridade ao salvar escopo: verifique se não há duplicidades."
         }, status=status.HTTP_400_BAD_REQUEST)
     except Exception as exc:
         return Response({

@@ -195,3 +195,116 @@ class EscopoExportarExcelTests(TestCase):
         self.assertEqual(len(df), 3)
         quantidades = sorted(df["quantidade"].tolist())
         self.assertEqual(quantidades, [1, 2, 4])
+
+
+class EscopoCreateTests(TestCase):
+    """
+    Testes para as APIs de criação de escopo (/escopos/create/)
+    e salvamento inline de itens de escopo.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_superuser(
+            username="admin_create",
+            password="password123",
+            email="admin_create@empresa.com",
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+        self.loja = Loja.objects.create(
+            nome_referencia="LOJA GAMA TESTE",
+            centro_de_custo="999000111222",
+            uf="SP",
+            status="ATIVA",
+        )
+        self.cargo_aux = Cargo.objects.create(nome="AUXILIAR DE LIMPEZA")
+        self.cargo_enc = Cargo.objects.create(nome="ENCARREGADO")
+
+    def test_escopo_create_sucesso(self):
+        """Garante a criação completa de um escopo mensal com itens."""
+        payload = {
+            "loja": str(self.loja.id),
+            "ano": 2026,
+            "mes": 6,
+            "itens": [
+                {"cargo": str(self.cargo_aux.id), "turno": "DIURNO", "quantidade": 5},
+                {"cargo": str(self.cargo_enc.id), "turno": "NOTURNO", "quantidade": 2},
+            ],
+        }
+        response = self.client.post("/escopos/novo/", payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data.get("success"))
+        self.assertIn("escopo", response.data)
+        self.assertIn("id", response.data["escopo"])
+
+        # Verifica persistência
+        escopo = EscopoMensal.objects.get(loja=self.loja, ano=2026, mes=6)
+        self.assertEqual(escopo.itens.count(), 2)
+
+    def test_escopo_create_loja_ano_mes_duplicado(self):
+        """Garante que tentar criar escopo duplicado retorna 400 amigável."""
+        EscopoMensal.objects.create(loja=self.loja, ano=2026, mes=6)
+        payload = {
+            "loja": str(self.loja.id),
+            "ano": 2026,
+            "mes": 6,
+            "itens": [
+                {"cargo": str(self.cargo_aux.id), "turno": "DIURNO", "quantidade": 1},
+            ],
+        }
+        response = self.client.post("/escopos/novo/", payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("cadastrado para a loja", response.data.get("error", ""))
+
+    def test_escopo_create_itens_duplicados_mesmo_cargo_e_turno(self):
+        """Garante que cargos duplicados no mesmo turno retornam 400 com nome do cargo."""
+        payload = {
+            "loja": str(self.loja.id),
+            "ano": 2026,
+            "mes": 7,
+            "itens": [
+                {"cargo": str(self.cargo_aux.id), "turno": "DIURNO", "quantidade": 3},
+                {"cargo": str(self.cargo_aux.id), "turno": "DIURNO", "quantidade": 2},
+            ],
+        }
+        response = self.client.post("/escopos/novo/", payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("mais de uma vez", response.data.get("error", ""))
+        self.assertIn("AUXILIAR DE LIMPEZA", response.data.get("error", ""))
+
+    def test_escopo_create_quantidade_invalida(self):
+        """Garante validação quando quantidade é menor que 1."""
+        payload = {
+            "loja": str(self.loja.id),
+            "ano": 2026,
+            "mes": 8,
+            "itens": [
+                {"cargo": str(self.cargo_aux.id), "turno": "DIURNO", "quantidade": 0},
+            ],
+        }
+        response = self.client.post("/escopos/novo/", payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("quantidade", response.data.get("error", "").lower())
+
+    def test_item_escopo_save_api_duplicado(self):
+        """Testa o endpoint api_item_escopo_save impedindo duplicidade no mesmo escopo."""
+        escopo = EscopoMensal.objects.create(loja=self.loja, ano=2026, mes=9)
+        ItemEscopoMensal.objects.create(
+            escopo_mensal=escopo,
+            cargo=self.cargo_aux,
+            turno="DIURNO",
+            quantidade=1,
+        )
+
+        # Tentativa de criar outro item com mesmo cargo e turno no mesmo escopo
+        payload = {
+            "escopo_id": str(escopo.id),
+            "cargo_id": str(self.cargo_aux.id),
+            "turno": "DIURNO",
+            "quantidade": 4,
+        }
+        response = self.client.post("/escopos/api/item/save/", payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Já existe", response.data.get("error", ""))
+

@@ -43,6 +43,7 @@ export default function Escopos() {
 
   // Controle de exibição do Modal de Criação
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedLojaForCreate, setSelectedLojaForCreate] = useState('');
   const [lojasSemEscopo, setLojasSemEscopo] = useState<LojaRef[]>([]);
 
   // Busca a lista de lojas ativas que não têm nenhum escopo cadastrado
@@ -253,7 +254,10 @@ export default function Escopos() {
             Duplicar Próximo Mês
           </button>
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => {
+              setSelectedLojaForCreate('');
+              setShowCreateModal(true);
+            }}
             className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-lg text-sm font-semibold hover:opacity-90 transition-all shadow-sm cursor-pointer"
           >
             <Plus className="h-4 w-4" />
@@ -267,16 +271,21 @@ export default function Escopos() {
         <div className="p-4 bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 dark:border-amber-500/30 rounded-xl space-y-2.5 animate-fade-in shadow-xs">
           <div className="flex items-center gap-2 font-bold text-xs text-amber-800 dark:text-amber-300">
             <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
-            <span>Demonstrativo: Lojas Ativas sem nenhum escopo criado</span>
+            <span>Demonstrativo: Lojas Ativas sem nenhum escopo criado (clique para criar)</span>
           </div>
           <div className="flex flex-wrap gap-1.5 pt-0.5">
             {lojasSemEscopo.map((loja) => (
-              <span 
+              <button 
                 key={loja.id} 
-                className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-500/10 dark:bg-amber-500/20 text-amber-800 dark:text-amber-350 border border-amber-500/20 dark:border-amber-550/30"
+                onClick={() => {
+                  setSelectedLojaForCreate(String(loja.id));
+                  setShowCreateModal(true);
+                }}
+                title={`Criar escopo para ${loja.nome_referencia}`}
+                className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-500/10 dark:bg-amber-500/20 text-amber-800 dark:text-amber-350 border border-amber-500/20 dark:border-amber-500/30 hover:bg-amber-500/25 hover:border-amber-500/50 transition-colors cursor-pointer"
               >
-                {loja.nome_referencia}
-              </span>
+                + {loja.nome_referencia}
+              </button>
             ))}
           </div>
         </div>
@@ -323,8 +332,15 @@ export default function Escopos() {
         <EscopoFormModal
           lojasOpcoes={lojasOpcoes}
           cargosOpcoes={cargosOpcoes}
-          onClose={() => setShowCreateModal(false)}
-          onRefresh={() => fetchEscopos(true)}
+          initialLojaId={selectedLojaForCreate}
+          onClose={() => {
+            setShowCreateModal(false);
+            setSelectedLojaForCreate('');
+          }}
+          onRefresh={() => {
+            fetchEscopos(true);
+            fetchLojasSemEscopo();
+          }}
         />
       )}
     </div>

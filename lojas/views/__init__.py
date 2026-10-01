@@ -48,7 +48,11 @@ from .comparativo_verbas import (
 )
 from .diarias import diarias_list_api, diarias_filtro_opcoes_api, diarias_exportar_excel
 from .premios import premios_list_api, premios_filtro_opcoes_api
-from .headcount import headcount_analise_api, headcount_loja_colaboradores_api
+from .headcount import (
+    headcount_analise_api,
+    headcount_exportar_excel,
+    headcount_loja_colaboradores_api,
+)
 from .presencas import (
     loja_presencas_calendario_api,
     loja_presencas_dia_api,
@@ -81,6 +85,7 @@ __all__ = [
     "escopo_exportar_excel",
     "escopo_list",
     "headcount_analise_api",
+    "headcount_exportar_excel",
     "headcount_loja_colaboradores_api",
     "parse_int_param",
     "replicar_do_mes_anterior_se_existir",

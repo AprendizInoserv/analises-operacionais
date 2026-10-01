@@ -18,14 +18,10 @@ class HeadcountPaginacao(PageNumberPagination):
     max_page_size = 100
 
 
-@api_view(["GET"])
-@permission_classes([IsAuthenticated, IsGestaoOrAdministrador])
-def headcount_analise_api(request):
+def _calcular_headcount_dados(search_text="", ordenacao=""):
     """
-    Por que existe: Esta view calcula o headcount planejado vs. real das lojas físicas ativas.
-    Ela obtém o quadro planejado diretamente do cadastro de cada loja (campo 'quadro' convertido para inteiro)
-    e compara dinamicamente em tempo real com a quantidade de colaboradores ativos vinculados no TOTVS SRA
-    (Sit. Folha vazia para lojas em geral, e Sit. Folha vazia + 'F' de férias para o cliente Atacadão).
+    Calcula o headcount planejado vs. real das lojas físicas ativas.
+    Retorna (resultado_completo, kpis).
     """
     from datetime import timedelta
     from django.utils import timezone
@@ -50,11 +46,10 @@ def headcount_analise_api(request):
     )
     ferias_map = {item["loja_id"]: item["total"] for item in ferias_dados}
 
-    # Carrega todas as lojas ativas
-    lojas = Loja.objects.filter(status="ATIVA").order_by("nome_referencia")
+    # Carrega todas as lojas ativas com coordenador otimizado
+    lojas = Loja.objects.filter(status="ATIVA").select_related("coordenador").order_by("nome_referencia")
 
     # Aplica busca textual se informada usando unidecode (para ser insensível a acentuações e case-insensitive)
-    search_text = request.GET.get("busca", "").strip()
     if search_text:
         search_norm = unidecode(search_text).lower()
         lojas_filtradas = []
@@ -62,10 +57,12 @@ def headcount_analise_api(request):
             nome_norm = unidecode(loja.nome_referencia or "").lower()
             cliente_norm = unidecode(loja.cliente or "").lower()
             cc_norm = unidecode(loja.centro_de_custo or "").lower()
+            coord_norm = unidecode(loja.coordenador.nome if loja.coordenador else "").lower()
             if (
                 search_norm in nome_norm
                 or search_norm in cliente_norm
                 or search_norm in cc_norm
+                or search_norm in coord_norm
             ):
                 lojas_filtradas.append(loja)
         lojas_list = lojas_filtradas
@@ -118,11 +115,14 @@ def headcount_analise_api(request):
         if quadro_planejado > 0:
             aderencia = round((presencas_ontem / quadro_planejado) * 100, 1)
 
+        coord_nome = loja.coordenador.nome if loja.coordenador else "-"
+
         resultado_completo.append({
             "loja_id": str(loja.id),
             "nome_referencia": loja.nome_referencia,
             "centro_de_custo": loja.centro_de_custo,
             "cliente": loja.cliente or "-",
+            "coordenador": coord_nome,
             "is_atacadao": is_atacadao,
             "quadro_planejado": quadro_planejado,
             "headcount_real": real,
@@ -133,7 +133,6 @@ def headcount_analise_api(request):
         })
 
     # Aplica ordenação com base no parâmetro 'ordenacao'
-    ordenacao = request.GET.get("ordenacao", "").strip()
     if ordenacao == "presencas_desc":
         resultado_completo.sort(key=lambda x: x["presencas_ultimo_dia"], reverse=True)
     elif ordenacao == "presencas_asc":
@@ -147,23 +146,95 @@ def headcount_analise_api(request):
     elif ordenacao == "aderencia_asc":
         resultado_completo.sort(key=lambda x: x["aderencia"])
 
+    kpis = {
+        "total_planejado": total_planejado,
+        "total_real": total_real_acumulado,
+        "total_excedentes": total_excedentes,
+        "total_lojas": len(resultado_completo),
+    }
+
+    return resultado_completo, kpis
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, IsGestaoOrAdministrador])
+def headcount_analise_api(request):
+    """
+    Por que existe: Esta view calcula o headcount planejado vs. real das lojas físicas ativas.
+    Ela obtém o quadro planejado diretamente do cadastro de cada loja (campo 'quadro' convertido para inteiro)
+    e compara dinamicamente em tempo real com a quantidade de colaboradores ativos vinculados no TOTVS SRA
+    (Sit. Folha vazia para lojas em geral, e Sit. Folha vazia + 'F' de férias para o cliente Atacadão).
+    """
+    search_text = request.GET.get("busca", "").strip()
+    ordenacao = request.GET.get("ordenacao", "").strip()
+
+    resultado_completo, kpis = _calcular_headcount_dados(search_text=search_text, ordenacao=ordenacao)
+
     # Aplica a paginação de lojas sobre os resultados
     paginator = HeadcountPaginacao()
     page = paginator.paginate_queryset(resultado_completo, request)
 
     payload = {
-        "kpis": {
-            "total_planejado": total_planejado,
-            "total_real": total_real_acumulado,
-            "total_excedentes": total_excedentes,
-            "total_lojas": len(resultado_completo),
-        },
+        "kpis": kpis,
         "resultados": page if page is not None else resultado_completo,
     }
 
     if page is not None:
         return paginator.get_paginated_response(payload)
     return Response(payload)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, IsGestaoOrAdministrador])
+def headcount_exportar_excel(request):
+    """
+    Exporta a listagem completa de headcount das lojas ativas respeitando os filtros de busca e ordenação
+    para um arquivo Excel (.xlsx).
+    """
+    import datetime
+    from io import BytesIO
+    from django.http import HttpResponse
+    import pandas as pd
+
+    search_text = request.GET.get("busca", "").strip()
+    ordenacao = request.GET.get("ordenacao", "").strip()
+
+    resultado_completo, _ = _calcular_headcount_dados(search_text=search_text, ordenacao=ordenacao)
+
+    linhas_excel = []
+    for item in resultado_completo:
+        linhas_excel.append({
+            "Loja": item["nome_referencia"],
+            "Cliente": item["cliente"],
+            "Centro de Custo": item["centro_de_custo"],
+            "Coordenador": item["coordenador"],
+            "Ativos TOTVS": item["headcount_real"],
+            "Quadro Planejado": item["quadro_planejado"],
+            "Desvio": item["desvio"],
+            "Presenças Ontem": item["presencas_ultimo_dia"],
+            "Aderência (%)": item["aderencia"],
+        })
+
+    df = pd.DataFrame(linhas_excel)
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Headcount")
+        worksheet = writer.sheets["Headcount"]
+        for col in worksheet.columns:
+            max_len = max(len(str(cell.value or "")) for cell in col)
+            col_letter = col[0].column_letter
+            worksheet.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+    buffer.seek(0)
+    data_hoje = datetime.date.today().strftime("%d_%m_%Y")
+    filename = f"headcount_lojas_{data_hoje}.xlsx"
+
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
 
 
 @api_view(["GET"])

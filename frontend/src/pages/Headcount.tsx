@@ -12,7 +12,9 @@ import {
   X,
   RefreshCw,
   Clock,
-  UserCheck
+  UserCheck,
+  Download,
+  Loader2
 } from 'lucide-react';
 import api from '../api/client';
 import { toast } from 'sonner';
@@ -23,6 +25,7 @@ interface HeadcountRow {
   nome_referencia: string;
   centro_de_custo: string;
   cliente: string;
+  coordenador: string;
   is_atacadao: boolean;
   quadro_planejado: number;
   headcount_real: number;
@@ -54,6 +57,7 @@ export default function Headcount() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [ordenacao, setOrdenacao] = useState<'default' | 'presencas_desc' | 'presencas_asc' | 'desvio_desc' | 'desvio_asc'>('default');
+  const [isExporting, setIsExporting] = useState(false);
 
   // Estados do Modal de Calendário de Presenças GeoVictoria
   interface ColaboradorPresenca {
@@ -297,7 +301,37 @@ export default function Headcount() {
     setCurrentPage(1);
   };
 
+  // Exportar dados de headcount para planilha Excel (.xlsx)
+  const handleExportarExcel = async () => {
+    try {
+      setIsExporting(true);
+      const params = new URLSearchParams();
+      if (busca) params.append('busca', busca);
+      if (ordenacao !== 'default') params.append('ordenacao', ordenacao);
 
+      const response = await api.get(`/lojas/headcount/exportar/?${params.toString()}`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      const dataHoje = new Date().toISOString().slice(0, 10);
+      link.setAttribute('download', `headcount_${dataHoje}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+      toast.success('Planilha de headcount exportada com sucesso!');
+    } catch (err) {
+      console.error('Erro ao exportar headcount para Excel:', err);
+      toast.error('Não foi possível exportar a planilha de headcount.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -317,12 +351,12 @@ export default function Headcount() {
       {/* Barra de Busca e Filtros */}
       <div className="p-4 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
         <div className="flex flex-col gap-1 w-full md:max-w-xl">
-          <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Buscar Loja / Cliente / CC</span>
+          <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Buscar Loja / Cliente / CC / Coordenador</span>
           <div className="relative">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />
             <input
               type="text"
-              placeholder="Digite o nome da loja, cliente ou centro de custo..."
+              placeholder="Digite o nome da loja, cliente, centro de custo ou coordenador..."
               value={busca}
               onChange={(e) => {
                 setBusca(e.target.value);
@@ -333,7 +367,16 @@ export default function Headcount() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-end md:self-auto">
+        <div className="flex items-center gap-2 self-end md:self-auto flex-wrap">
+          <button
+            onClick={handleExportarExcel}
+            disabled={isExporting}
+            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-750 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 text-xs font-bold rounded-xl disabled:opacity-50 transition-all shadow-xs cursor-pointer disabled:cursor-not-allowed"
+            title="Exportar dados de headcount para planilha Excel (.xlsx)"
+          >
+            {isExporting ? <Loader2 className="h-4 w-4 animate-spin text-neutral-500" /> : <Download className="h-4 w-4 text-neutral-500" />}
+            {isExporting ? 'Exportando...' : 'Exportar Planilha'}
+          </button>
           <button
             onClick={handleSyncGeral}
             disabled={syncingRecente}
@@ -426,6 +469,7 @@ export default function Headcount() {
                 <th className="py-4 px-6">Loja</th>
                 <th className="py-4 px-4">Cliente</th>
                 <th className="py-4 px-4">Centro de Custo</th>
+                <th className="py-4 px-4">Coordenador</th>
                 <th className="py-4 px-4 text-center">Ativos TOTVS</th>
                 <th className="py-4 px-4 text-center">Quadro Planejado</th>
                 <th
@@ -469,6 +513,7 @@ export default function Headcount() {
                     <td className="py-4 px-6"><div className="h-4 bg-neutral-100 dark:bg-neutral-800 rounded w-40" /></td>
                     <td className="py-4 px-4"><div className="h-4 bg-neutral-100 dark:bg-neutral-800 rounded w-24" /></td>
                     <td className="py-4 px-4"><div className="h-4 bg-neutral-100 dark:bg-neutral-800 rounded w-16" /></td>
+                    <td className="py-4 px-4"><div className="h-4 bg-neutral-100 dark:bg-neutral-800 rounded w-24" /></td>
                     <td className="py-4 px-4"><div className="h-4 bg-neutral-100 dark:bg-neutral-800 rounded w-8 mx-auto" /></td>
                     <td className="py-4 px-4"><div className="h-4 bg-neutral-100 dark:bg-neutral-800 rounded w-8 mx-auto" /></td>
                     <td className="py-4 px-4"><div className="h-4 bg-neutral-100 dark:bg-neutral-800 rounded w-8 mx-auto" /></td>
@@ -477,7 +522,7 @@ export default function Headcount() {
                 ))
               ) : data.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-neutral-400 italic">
+                  <td colSpan={8} className="py-12 text-center text-neutral-400 italic">
                     Nenhuma loja ativa encontrada para os filtros aplicados.
                   </td>
                 </tr>
@@ -502,6 +547,7 @@ export default function Headcount() {
                     </td>
                     <td className="py-4 px-4 text-neutral-600 dark:text-neutral-400 font-medium">{row.cliente}</td>
                     <td className="py-4 px-4 text-neutral-500 font-mono">{row.centro_de_custo}</td>
+                    <td className="py-4 px-4 text-neutral-600 dark:text-neutral-400 font-medium">{row.coordenador || '-'}</td>
                     <td className="py-4 px-4 text-center font-bold text-neutral-900 dark:text-neutral-100">{row.headcount_real}</td>
                     <td className="py-4 px-4 text-center font-bold text-neutral-900 dark:text-neutral-100">{row.quadro_planejado}</td>
                     <td className="py-4 px-4 text-center">

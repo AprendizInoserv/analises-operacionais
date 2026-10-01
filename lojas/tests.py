@@ -4,7 +4,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
 
-from lojas.models import Loja
+from lojas.models import Loja, Coordenador
 from colaboradores.models import Colaborador
 
 
@@ -22,7 +22,10 @@ class HeadcountViewsTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
-        # Cria lojas ativas (uma Atacadão, uma normal) com o quadro planejado no cadastro
+        # Cria coordenador de teste
+        self.coordenador = Coordenador.objects.create(nome="Coordenador Roberto")
+
+        # Cria lojas ativas (uma Atacadão com coordenador, uma normal sem coordenador) com o quadro planejado no cadastro
         self.loja_atacadao = Loja.objects.create(
             nome_referencia="ATACADÃO SÃO PAULO",
             cliente="ATACADÃO",
@@ -30,6 +33,7 @@ class HeadcountViewsTests(TestCase):
             quadro="3",
             uf="SP",
             status="ATIVA",
+            coordenador=self.coordenador,
         )
         self.loja_carrefour = Loja.objects.create(
             nome_referencia="CARREFOUR CAMPINAS",
@@ -184,3 +188,48 @@ class HeadcountViewsTests(TestCase):
         self.assertIn("Ana Ativo Carrefour", nomes_carrefour)
         self.assertNotIn("Lucas Demitido Carrefour", nomes_carrefour)
         self.assertNotIn("Rita Ferias Carrefour", nomes_carrefour)
+
+    def test_headcount_coordenador_e_busca(self):
+        # Valida que o coordenador vem preenchido quando vinculado e "-" quando não vinculado
+        response = self.client.get("/lojas/headcount/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        resultados = response.data["results"]["resultados"]
+
+        atacadao_data = next(r for r in resultados if r["nome_referencia"] == "ATACADÃO SÃO PAULO")
+        carrefour_data = next(r for r in resultados if r["nome_referencia"] == "CARREFOUR CAMPINAS")
+
+        self.assertEqual(atacadao_data["coordenador"], "Coordenador Roberto")
+        self.assertEqual(carrefour_data["coordenador"], "-")
+
+        # Valida busca pelo nome do coordenador
+        response_busca = self.client.get("/lojas/headcount/?busca=Roberto")
+        self.assertEqual(response_busca.status_code, status.HTTP_200_OK)
+        resultados_busca = response_busca.data["results"]["resultados"]
+        self.assertEqual(len(resultados_busca), 1)
+        self.assertEqual(resultados_busca[0]["nome_referencia"], "ATACADÃO SÃO PAULO")
+
+    def test_headcount_exportar_excel(self):
+        # Valida endpoint de exportação para Excel (.xlsx)
+        response = self.client.get("/lojas/headcount/exportar/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response["Content-Type"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        self.assertIn("attachment; filename=", response["Content-Disposition"])
+
+        # Lê o Excel gerado para validar colunas e conteúdo
+        import io
+        import openpyxl
+        wb = openpyxl.load_workbook(io.BytesIO(response.content))
+        self.assertIn("Headcount", wb.sheetnames)
+        sheet = wb["Headcount"]
+        headers = [cell.value for cell in sheet[1]]
+        self.assertIn("Coordenador", headers)
+        self.assertIn("Loja", headers)
+        self.assertIn("Cliente", headers)
+        self.assertIn("Centro de Custo", headers)
+        self.assertIn("Ativos TOTVS", headers)
+        self.assertIn("Quadro Planejado", headers)
+        self.assertIn("Desvio", headers)
+        self.assertIn("Presenças Ontem", headers)

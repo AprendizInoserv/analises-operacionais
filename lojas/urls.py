@@ -39,6 +39,7 @@ urlpatterns = [
     
     # ========== HEADCOUNT ==========
     path("lojas/headcount/", views.headcount_analise_api, name="lojas_headcount_analise"),
+    path("lojas/headcount/exportar/", views.headcount_exportar_excel, name="headcount_exportar_excel"),
     path("lojas/headcount/<int:loja_id>/colaboradores/", views.headcount_loja_colaboradores_api, name="headcount_loja_colaboradores"),
     
     # ========== DIÁRIAS (BI & Importador) ==========

@@ -11,14 +11,11 @@ from unidecode import unidecode
 from ..models import Loja, STATUS_CHOICES, obter_ou_criar_config_insalubridade_loja, Coordenador, Supervisor
 from ..serializers import LojaSerializer, CoordenadorSerializer, SupervisorSerializer
 
-@api_view(["GET"])
-@permission_classes([IsAuthenticated, IsGestaoOrAdministrador])
-def store_list(request):
+def _filtrar_lojas_queryset(request):
     """
-    Retorna a lista paginada e filtrada de lojas.
-    Utiliza a paginação nativa do Django REST Framework.
+    Filtra as lojas a partir dos parâmetros de busca da requisição.
     """
-    stores = Loja.objects.all().order_by("nome_referencia")
+    stores = Loja.objects.all().select_related("coordenador", "supervisor").order_by("nome_referencia")
 
     search_text = request.GET.get("busca", "").strip()
     client_name = request.GET.get("cliente", "").strip()
@@ -30,12 +27,15 @@ def store_list(request):
     coordenador_val = request.GET.get("coordenador", "").strip()
 
     if search_text:
-        # Por que existe: Permite buscar lojas por qualquer um dos nomes cadastrados (referencia, totvs, gestao ou geovictoria)
+        # Por que existe: Permite buscar lojas por qualquer um dos nomes cadastrados
         # através de uma busca de texto livre parcial e insensível a maiúsculas/minúsculas.
         q_obj = (
             Q(nome_referencia__icontains=search_text) |
             Q(nome_totvs__icontains=search_text) |
-            Q(nome_geovictoria__icontains=search_text)
+            Q(nome_geovictoria__icontains=search_text) |
+            Q(nome_financeiro__icontains=search_text) |
+            Q(nome_findme__icontains=search_text) |
+            Q(nome_metricas__icontains=search_text)
         )
         stores = stores.filter(q_obj)
 
@@ -117,6 +117,18 @@ def store_list(request):
                 q_obj = q_obj | Q(codigo_loja__isnull=True)
             stores = stores.filter(q_obj)
 
+    return stores
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, IsGestaoOrAdministrador])
+def store_list(request):
+    """
+    Retorna a lista paginada e filtrada de lojas.
+    Utiliza a paginação nativa do Django REST Framework.
+    """
+    stores = _filtrar_lojas_queryset(request)
+
     if request.GET.get("sem_paginacao", "").strip().lower() in ("true", "1", "yes", "t"):
         serializer = LojaSerializer(stores, many=True)
         return Response(serializer.data)
@@ -130,6 +142,73 @@ def store_list(request):
 
     serializer = LojaSerializer(stores, many=True)
     return Response(serializer.data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, IsGestaoOrAdministrador])
+def store_exportar_excel(request):
+    """
+    Exporta a listagem completa de lojas respeitando os filtros aplicados
+    para um arquivo Excel (.xlsx).
+    Inclui todos os nomes cadastrados para a loja (Referência, TOTVS, GeoVictoria,
+    Financeiro, FindMe, Métricas) e os dados operacionais da tabela (Cód. Loja,
+    Cliente/Regional, Centro de Custo, Quadro Estimado, Coordenador, Supervisor, Status, etc).
+    """
+    import datetime
+    from io import BytesIO
+    from django.http import HttpResponse
+    import pandas as pd
+
+    stores = _filtrar_lojas_queryset(request)
+
+    linhas_excel = []
+    for loja in stores:
+        coord_nome = loja.coordenador.nome if loja.coordenador else "-"
+        sup_nome = loja.supervisor.nome if loja.supervisor else "-"
+
+        linhas_excel.append({
+            "Cód. Loja": str(loja.codigo_loja) if loja.codigo_loja is not None else "-",
+            "Nome de Referência": loja.nome_referencia or "",
+            "Nome TOTVS": loja.nome_totvs or "",
+            "Nome GeoVictoria": loja.nome_geovictoria or "",
+            "Nome Financeiro": loja.nome_financeiro or "",
+            "Nome FindMe": loja.nome_findme or "",
+            "Nome Métricas": loja.nome_metricas or "",
+            "Cliente/Regional": loja.cliente or "-",
+            "Centro de Custo": loja.centro_de_custo or "",
+            "Quadro Estimado": loja.quadro or "",
+            "Coordenador": coord_nome,
+            "Supervisor": sup_nome,
+            "Status": loja.status or "",
+            "CNPJ": loja.cnpj or "",
+            "UF": loja.uf or "",
+            "Município": loja.municipio or "",
+            "Bairro": loja.bairro or "",
+            "CEP": loja.cep or "",
+            "Sub-Região": loja.sub_regiao or "",
+        })
+
+    df = pd.DataFrame(linhas_excel)
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Lojas")
+        worksheet = writer.sheets["Lojas"]
+        for col in worksheet.columns:
+            max_len = max(len(str(cell.value or "")) for cell in col)
+            col_letter = col[0].column_letter
+            worksheet.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+    buffer.seek(0)
+    data_hoje = datetime.date.today().strftime("%d_%m_%Y")
+    filename = f"lojas_{data_hoje}.xlsx"
+
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated, IsGestaoOrAdministrador])

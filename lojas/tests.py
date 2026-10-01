@@ -233,3 +233,41 @@ class HeadcountViewsTests(TestCase):
         self.assertIn("Quadro Planejado", headers)
         self.assertIn("Desvio", headers)
         self.assertIn("Presenças Ontem", headers)
+
+    def test_lojas_exportar_excel(self):
+        # Configura nomes extras para testar exportação completa de nomes
+        self.loja_atacadao.nome_totvs = "ATACADAO TOTVS 10"
+        self.loja_atacadao.nome_geovictoria = "ATACADAO GEO 10"
+        self.loja_atacadao.nome_financeiro = "ATACADAO FIN 10"
+        self.loja_atacadao.nome_findme = "ATACADAO FINDME 10"
+        self.loja_atacadao.nome_metricas = "ATACADAO METRICAS 10"
+        self.loja_atacadao.codigo_loja = 101
+        self.loja_atacadao.save()
+
+        response = self.client.get("/lojas/exportar/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response["Content-Type"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        self.assertIn("attachment; filename=", response["Content-Disposition"])
+
+        import io
+        import openpyxl
+        wb = openpyxl.load_workbook(io.BytesIO(response.content))
+        self.assertIn("Lojas", wb.sheetnames)
+        sheet = wb["Lojas"]
+        headers = [cell.value for cell in sheet[1]]
+        self.assertIn("Cód. Loja", headers)
+        self.assertIn("Nome de Referência", headers)
+        self.assertIn("Nome TOTVS", headers)
+        self.assertIn("Nome GeoVictoria", headers)
+        self.assertIn("Nome Financeiro", headers)
+        self.assertIn("Nome FindMe", headers)
+        self.assertIn("Nome Métricas", headers)
+        self.assertIn("Cliente/Regional", headers)
+        self.assertIn("Centro de Custo", headers)
+        self.assertIn("Quadro Estimado", headers)
+        self.assertIn("Coordenador", headers)
+        self.assertIn("Supervisor", headers)
+        self.assertIn("Status", headers)

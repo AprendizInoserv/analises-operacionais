@@ -4,6 +4,7 @@ from .views import configuracoes  # Isso importa lojas/views/configuracoes.py
 
 urlpatterns = [
     path("lojas/", views.store_list, name="lista_lojas"),
+    path("lojas/exportar/", views.store_exportar_excel, name="lojas_exportar_excel"),
     path("lojas/filtro-opcoes/", views.store_filtro_opcoes, name="lojas_filtro_opcoes"),
     path("lojas/nova/", views.store_create, name="nova_loja"),
     path("lojas/<int:pk>/", views.store_detail, name="detalhe_loja"),

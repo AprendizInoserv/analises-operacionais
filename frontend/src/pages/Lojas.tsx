@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Plus, AlertCircle } from 'lucide-react';
+import { Plus, AlertCircle, Download, Loader2 } from 'lucide-react';
 import api from '../api/client';
 import { toast } from 'sonner';
 import SearchableSelect from '../components/ui/searchable-select';
@@ -25,6 +25,7 @@ export default function Lojas() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [count, setCount] = useState(0);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Estados dos Filtros
   const [busca, setBusca] = useState('');
@@ -269,6 +270,43 @@ export default function Lojas() {
     setShowInsalubridadeModal(true);
   };
 
+  // Exportar listagem de lojas filtradas para Excel (.xlsx)
+  const handleExportarExcel = async () => {
+    try {
+      setIsExporting(true);
+      const params = new URLSearchParams();
+      if (busca) params.append('busca', busca);
+      if (cliente) params.append('cliente', cliente);
+      if (statusFiltro) params.append('status', statusFiltro);
+      if (centroCusto) params.append('centro_de_custo', centroCusto);
+      if (coordenadorFiltro) params.append('coordenador', coordenadorFiltro);
+      if (supervisorFiltro) params.append('supervisor', supervisorFiltro);
+      if (codigoLojaFiltro) params.append('codigo_loja', codigoLojaFiltro);
+
+      const response = await api.get(`/lojas/exportar/?${params.toString()}`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      const dataHoje = new Date().toISOString().slice(0, 10);
+      link.setAttribute('download', `lojas_${dataHoje}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+      toast.success('Planilha de lojas exportada com sucesso!');
+    } catch (err) {
+      console.error('Erro ao exportar lojas para Excel:', err);
+      toast.error('Não foi possível exportar a planilha de lojas.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Cabeçalho */}
@@ -277,7 +315,17 @@ export default function Lojas() {
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-50">Lojas do Grupo</h1>
           <p className="text-sm text-neutral-500">Visualização de cadastros de filiais e parametrização financeira</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={handleExportarExcel}
+            disabled={isExporting}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 border border-neutral-200 dark:border-neutral-850 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-full text-xs font-bold text-neutral-800 dark:text-white transition-all shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Exportar lojas filtradas para planilha Excel (.xlsx)"
+          >
+            {isExporting ? <Loader2 className="h-4 w-4 animate-spin text-neutral-500" /> : <Download className="h-4 w-4 text-neutral-500" />}
+            {isExporting ? 'Exportando...' : 'Exportar Planilha'}
+          </button>
           <button
             onClick={() => setShowResponsaveisModal(true)}
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 border border-neutral-200 dark:border-neutral-850 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-full text-xs font-bold text-neutral-800 dark:text-white transition-all shadow-xs cursor-pointer"
@@ -413,17 +461,27 @@ export default function Lojas() {
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 pt-2">
+        <div className="flex justify-end gap-3 pt-2 flex-wrap">
           <button
             type="button"
             onClick={handleClearFilters}
-            className="px-5 py-2.5 border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/40 rounded-full text-xs font-bold text-neutral-700 dark:text-neutral-300 text-sm font-semibold transition-colors"
+            className="px-5 py-2.5 border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/40 rounded-full text-xs font-bold text-neutral-700 dark:text-neutral-300 text-sm font-semibold transition-colors cursor-pointer"
           >
             Limpar Filtros
           </button>
           <button
+            type="button"
+            onClick={handleExportarExcel}
+            disabled={isExporting}
+            className="px-5 py-2.5 border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/40 rounded-full text-xs font-bold text-neutral-700 dark:text-neutral-300 transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Exportar lojas filtradas para planilha Excel (.xlsx)"
+          >
+            {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            {isExporting ? 'Exportando...' : 'Exportar Planilha'}
+          </button>
+          <button
             type="submit"
-            className="px-6 py-2.5 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-full text-xs font-bold hover:bg-neutral-850 dark:hover:bg-neutral-100 shadow-xs transition-opacity"
+            className="px-6 py-2.5 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-full text-xs font-bold hover:bg-neutral-850 dark:hover:bg-neutral-100 shadow-xs transition-opacity cursor-pointer"
           >
             Buscar Filiais
           </button>

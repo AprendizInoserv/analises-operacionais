@@ -21,6 +21,10 @@ ALLOWED_HOSTS = DEFAULT_ALLOWED_HOSTS + config(
     cast=Csv(),
 )
 
+# CORS - Permite comunicação irrestrita entre portas e hosts na rede local (ex: hostname e IP)
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+
 # Caminho da planilha de De-Para de Verbas (opcional)
 PLANILHA_VERBAS_PATH = config("PLANILHA_VERBAS_PATH", default="").strip('\'"')
 

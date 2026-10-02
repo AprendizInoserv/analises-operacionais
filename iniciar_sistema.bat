@@ -57,7 +57,9 @@ rem Aguarda 3 segundos
 ping -n 4 127.0.0.1 >nul 2>&1
 
 rem 6. Inicia o Frontend Vite
-if exist "frontend\package.json" (
+if exist "frontend\node_modules\.bin\vite.cmd" (
+    start "Frontend - %AMBIENTE% - Porta %FRONTEND_PORT%" /D "%CD%\frontend" cmd /k "set VITE_PORT=%FRONTEND_PORT% && node_modules\.bin\vite.cmd --host --port %FRONTEND_PORT% || pause"
+) else if exist "frontend\package.json" (
     start "Frontend - %AMBIENTE% - Porta %FRONTEND_PORT%" /D "%CD%\frontend" cmd /k "set VITE_PORT=%FRONTEND_PORT% && yarn dev --host --port %FRONTEND_PORT% || pause"
 )
 

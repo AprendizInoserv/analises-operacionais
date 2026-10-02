@@ -1,26 +1,26 @@
 @echo off
 chcp 65001 >nul
-title Menu de Emergência - Análises Operacionais
+title Menu de Emergencia - Analises Operacionais
 color 1F
 
 :MENU
 cls
 echo ===============================================================================
-echo                 PAINEL DE CONTROLE E EMERGÊNCIA DO SISTEMA
-echo                        SISTEMA DE ANÁLISES OPERACIONAIS
+echo                 PAINEL DE CONTROLE E EMERGENCIA DO SISTEMA
+echo                        SISTEMA DE ANALISES OPERACIONAIS
 echo ===============================================================================
 echo.
 echo    [1] Iniciar Sistema (Backend + Frontend)
 echo    [2] Parar Sistema (Encerrar todos os processos)
 echo    [3] Reiniciar Sistema
 echo    [4] Fazer Backup do Banco de Dados Agora
-echo    [5] Restaurar Último Backup Válido (Recuperação)
-echo    [6] Gerar Relatório de Diagnóstico do Sistema (diagnostico.txt)
-echo    [7] Iniciar Supervisor de Auto-Recuperação (Watchdog)
+echo    [5] Restaurar Ultimo Backup Valido (Recuperacao)
+echo    [6] Gerar Relatorio de Diagnostico do Sistema (diagnostico.txt)
+echo    [7] Iniciar Supervisor de Auto-Recuperacao (Watchdog)
 echo    [8] Sair
 echo.
 echo ===============================================================================
-set /p OPCAO="Escolha uma opção (1 a 8): "
+set /p OPCAO="Escolha uma opcao (1 a 8): "
 
 if "%OPCAO%"=="1" goto INICIAR
 if "%OPCAO%"=="2" goto PARAR
@@ -35,7 +35,7 @@ goto MENU
 :INICIAR
 cls
 echo Iniciando o sistema...
-cd /d "%~dp0"
+cd /d "%~dp0."
 call iniciar_sistema.bat
 pause
 goto MENU
@@ -54,8 +54,8 @@ goto MENU
 cls
 echo Reiniciando o sistema...
 taskkill /f /im python.exe /fi "WINDOWTITLE eq Django*" >nul 2>&1
-timeout /t 2 /nobreak >nul
-cd /d "%~dp0"
+ping -n 3 127.0.0.1 >nul 2>&1
+cd /d "%~dp0."
 call iniciar_sistema.bat
 pause
 goto MENU
@@ -63,7 +63,7 @@ goto MENU
 :BACKUP
 cls
 echo Executando backup seguro do banco de dados...
-cd /d "%~dp0"
+cd /d "%~dp0."
 call venv\Scripts\activate.bat
 python manage.py backup_db
 echo.
@@ -82,9 +82,9 @@ goto MENU
 
 :WATCHDOG
 cls
-echo Iniciando supervisor de auto-recuperação em segundo plano...
-cd /d "%~dp0"
+echo Iniciando supervisor de auto-recuperacao em segundo plano...
+cd /d "%~dp0."
 start "Watchdog Auto-Recovery" cmd /k "call venv\Scripts\activate.bat && python watchdog.py"
-echo Supervisor iniciado! Uma janela com o monitoramento ficará aberta.
+echo Supervisor iniciado! Uma janela com o monitoramento ficara aberta.
 pause
 goto MENU

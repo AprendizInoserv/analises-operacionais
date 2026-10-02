@@ -1,18 +1,17 @@
 @echo off
 chcp 65001 >nul
-title Inicializador do Sistema - Análises Operacionais
-color 0A
+title Inicializador do Sistema - Analises Operacionais
 
 echo ===============================================================================
-echo                INICIALIZANDO SISTEMA DE ANÁLISES OPERACIONAIS
+echo                INICIALIZANDO SISTEMA DE ANALISES OPERACIONAIS
 echo ===============================================================================
 echo.
 
-cd /d "%~dp0"
+cd /d "%~dp0."
 
-:: 1. Verificação do Ambiente Virtual (VENV)
+rem 1. Verificacao do Ambiente Virtual
 if not exist "venv\Scripts\activate.bat" (
-    echo [ERRO CRÍTICO] Ambiente virtual (venv) não encontrado!
+    echo [ERRO CRITICO] Ambiente virtual venv nao encontrado!
     echo Execute: python -m venv venv e instale os pacotes com: pip install -r requirements.txt
     pause
     exit /b 1
@@ -20,56 +19,56 @@ if not exist "venv\Scripts\activate.bat" (
 
 call venv\Scripts\activate.bat
 
-:: 2. Executa backup preventivo antes de iniciar o sistema
-echo [1/4] Realizando cópia de segurança preventiva do banco de dados...
+rem 2. Executa backup preventivo antes de iniciar o sistema
+echo [1/4] Realizando copia de seguranca preventiva do banco de dados...
 python manage.py backup_db
 echo.
 
-:: 3. Executa migrações pendentes do banco
-echo [2/4] Verificando e aplicando migrações de dados...
+rem 3. Executa migracoes pendentes do banco
+echo [2/4] Verificando e aplicando migracoes de dados...
 python manage.py migrate --noinput
 echo.
 
-:: Detecta se é ambiente de TESTE (Desktop) ou PRODUÇÃO (Documents)
-echo %~dp0 | findstr /i "Desktop ryanmont" >nul 2>&1
+rem Detecta se e ambiente de TESTE (Desktop) ou PRODUCAO (Documents)
+set AMBIENTE=PRODUCAO
+set BACKEND_PORT=8000
+set FRONTEND_PORT=5173
+
+echo %CD% | findstr /i "Desktop ryanmont" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     set AMBIENTE=TESTE
     set BACKEND_PORT=8001
     set FRONTEND_PORT=5174
-) else (
-    set AMBIENTE=PRODUCAO
-    set BACKEND_PORT=8000
-    set FRONTEND_PORT=5173
 )
 
-:: 4. Checagem de porta
-echo [3/4] Verificando porta %BACKEND_PORT%...
+rem 4. Checagem de porta
+echo [3/4] Verificando se a porta %BACKEND_PORT% esta livre...
 netstat -ano | findstr "LISTENING" | findstr ":%BACKEND_PORT%" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
-    echo [AVISO] Já existe um processo escutando na porta %BACKEND_PORT%.
-    echo Se o sistema já estiver funcionando, você pode fechar esta janela.
+    echo [AVISO] Ja existe um processo escutando na porta %BACKEND_PORT%.
+    echo Se o sistema ja estiver funcionando, voce pode fechar esta janela.
 )
 
-:: 5. Inicia o Backend Waitress
+rem 5. Inicia o Backend Waitress
 echo [4/4] Iniciando Servidor Web Backend (%AMBIENTE% - Porta %BACKEND_PORT%)...
-start "Django (%AMBIENTE% - %BACKEND_PORT%)" cmd /k "cd /d %~dp0 && call venv\Scripts\activate.bat && python -m waitress --listen=0.0.0.0:%BACKEND_PORT% --threads=12 core.wsgi:application || pause"
+start "Django - %AMBIENTE% - Porta %BACKEND_PORT%" /D "%CD%" cmd /k "call venv\Scripts\activate.bat && python -m waitress --listen=0.0.0.0:%BACKEND_PORT% --threads=12 core.wsgi:application || pause"
 
-:: Aguarda 3 segundos
-timeout /t 3 /nobreak >nul
+rem Aguarda 3 segundos
+ping -n 4 127.0.0.1 >nul 2>&1
 
-:: 6. Inicia o Frontend Vite (se necessário para ambiente de desenvolvimento)
+rem 6. Inicia o Frontend Vite
 if exist "frontend\package.json" (
-    start "Frontend (%AMBIENTE% - %FRONTEND_PORT%)" cmd /k "cd /d %~dp0frontend && set VITE_PORT=%FRONTEND_PORT% && yarn dev --host --port %FRONTEND_PORT% || pause"
+    start "Frontend - %AMBIENTE% - Porta %FRONTEND_PORT%" /D "%CD%\frontend" cmd /k "set VITE_PORT=%FRONTEND_PORT% && yarn dev --host --port %FRONTEND_PORT% || pause"
 )
 
 echo.
 echo ===============================================================================
 echo [SUCESSO] Sistema de %AMBIENTE% iniciado com sucesso!
 echo Acesso local:    http://localhost:%FRONTEND_PORT%/
-echo Acesso na rede:  http://%COMPUTERNAME%:%FRONTEND_PORT%/ (ou veja o IP com diagnostico.bat)
+echo Acesso na rede:  http://%COMPUTERNAME%:%FRONTEND_PORT%/
 echo.
-echo Para monitoramento automático e auto-recuperação, execute:
-echo menu_emergencia.bat (Opção 7) ou python watchdog.py
+echo Para monitoramento automatico e auto-recuperacao, execute:
+echo menu_emergencia.bat (Opcao 7) ou python watchdog.py
 echo ===============================================================================
 echo.
-timeout /t 5 >nul
+ping -n 6 127.0.0.1 >nul 2>&1

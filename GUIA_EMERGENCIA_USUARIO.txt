@@ -1,0 +1,52 @@
+================================================================================
+          GUIA RÁPIDO DE EMERGÊNCIA - SISTEMA DE ANÁLISES OPERACIONAIS
+================================================================================
+
+Este guia foi criado para qualquer pessoa da equipe, sem necessidade de 
+conhecimento em programação ou TI.
+
+--------------------------------------------------------------------------------
+1. SE O SISTEMA ESTIVER FUNCIONANDO NORMALMENTE:
+--------------------------------------------------------------------------------
+   -> NÃO PRECISA FAZER NADA! Deixe o computador ligado.
+   -> O sistema realiza backups e rotinas de manutenção automaticamente.
+
+--------------------------------------------------------------------------------
+2. SE O SISTEMA ESTIVER FORA DO AR (NENHUM COMPUTADOR CONSEGUE ACESSAR):
+--------------------------------------------------------------------------------
+   PASSO 1: Verifique se este computador (o servidor) está ligado na tomada 
+            e com o cabo de rede conectado.
+   
+   PASSO 2: Dê um duplo clique no arquivo:
+            menu_emergencia.bat
+            
+            E escolha a opção:
+            [3] Reiniciar Sistema
+
+   PASSO 3: Aguarde 10 segundos e tente acessar novamente de outro computador:
+            http://[IP-DO-SERVIDOR]:8000/
+            
+   PASSO 4: Se ainda não abrir, abra o menu_emergencia.bat e escolha:
+            [6] Gerar Relatório de Diagnóstico do Sistema
+            
+            O arquivo 'diagnostico.txt' será aberto na tela. 
+            Envie esse arquivo por e-mail ou WhatsApp para o responsável pelo suporte.
+
+--------------------------------------------------------------------------------
+3. SE O BANCO DE DADOS APRESENTAR ERRO OU CORRUPÇÃO:
+--------------------------------------------------------------------------------
+   PASSO 1: Dê um duplo clique no arquivo:
+            restaurar_backup.bat
+            
+   PASSO 2: Pressione 'S' para confirmar. O sistema irá automaticamente recuperar 
+            a cópia íntegra mais recente sem perder os dados anteriores.
+
+--------------------------------------------------------------------------------
+4. SE O IP DO COMPUTADOR MUDAR (ROTEADOR REINICIOU):
+--------------------------------------------------------------------------------
+   Dê um duplo clique em:
+   diagnostico.bat
+   
+   O arquivo de diagnóstico mostrará o novo número de "Endereço IPv4" 
+   (ex: 10.1.1.xxx). Esse é o endereço que todos devem digitar no navegador.
+================================================================================

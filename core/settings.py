@@ -16,7 +16,7 @@ DEBUG = config("DEBUG", default=False, cast=bool)
 DEFAULT_ALLOWED_HOSTS = ["*"]
 
 ALLOWED_HOSTS = DEFAULT_ALLOWED_HOSTS + config(
-    "*",
+    "ALLOWED_HOSTS",
     default="*",
     cast=Csv(),
 )
@@ -257,4 +257,77 @@ EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
 EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="onboarding@resend.dev")
+
+# ==============================================================================
+# CONFIGURAÇÃO DE LOGS ROTATIVOS (DIAGNÓSTICO E AUDITORIA PERSISTENTE)
+# ==============================================================================
+LOGS_DIR = BASE_DIR / "logs"
+LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[{asctime}] {levelname} [{name}:{lineno}] {message}",
+            "style": "{",
+        },
+        "simple": {
+            "format": "[{asctime}] {levelname} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "level": "INFO",
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
+        "file_app": {
+            "level": "INFO",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": str(LOGS_DIR / "app.log"),
+            "maxBytes": 10 * 1024 * 1024,  # 10 MB por arquivo
+            "backupCount": 5,             # Mantém 5 arquivos de histórico
+            "formatter": "verbose",
+            "encoding": "utf-8",
+        },
+        "file_errors": {
+            "level": "ERROR",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": str(LOGS_DIR / "errors.log"),
+            "maxBytes": 10 * 1024 * 1024,
+            "backupCount": 5,
+            "formatter": "verbose",
+            "encoding": "utf-8",
+        },
+    },
+    "root": {
+        "handlers": ["console", "file_app", "file_errors"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console", "file_app", "file_errors"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "django.request": {
+            "handlers": ["console", "file_errors"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+    },
+}
+
+# ==============================================================================
+# SERVIÇO DE FRONTEND COMPILADO VIA WHITENOISE (PRODUÇÃO EM PORTA ÚNICA)
+# ==============================================================================
+FRONTEND_DIST_DIR = BASE_DIR / "frontend" / "dist"
+if FRONTEND_DIST_DIR.exists():
+    WHITENOISE_ROOT = FRONTEND_DIST_DIR
+    WHITENOISE_INDEX_FILE = True
+    STATICFILES_DIRS = [
+        FRONTEND_DIST_DIR / "assets",
+    ]
 

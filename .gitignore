@@ -41,8 +41,17 @@ staticfiles/
 Thumbs.db
 # Migrations não devem ser ignoradas; mantemos elas no Git
 
-# Inicializador local de testes
-iniciar_projeto.bat
+# Scripts operacionais versionados
+!iniciar_projeto.bat
+!iniciar_sistema.bat
+!restaurar_backup.bat
+!diagnostico.bat
+!menu_emergencia.bat
+!watchdog.py
+
+# Backups e logs locais
+backups/
+logs/
 
 # Arquivos de dados locais e fixtures com dados internos
 *.csv

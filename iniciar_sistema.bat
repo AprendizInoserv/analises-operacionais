@@ -53,7 +53,8 @@ if exist "frontend\package.json" (
 echo.
 echo ===============================================================================
 echo [SUCESSO] Sistema iniciado!
-echo Acesso local:    http://localhost:8000/ ou http://localhost:5173/
+echo Acesso local:    http://localhost:5173/ ou http://localhost:8000/
+echo Acesso na rede:  http://%COMPUTERNAME%:5173/ (ou veja o IP com diagnostico.bat)
 echo.
 echo Para monitoramento automático e auto-recuperação, execute:
 echo menu_emergencia.bat (Opção 7) ou python watchdog.py

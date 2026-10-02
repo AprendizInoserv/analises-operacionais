@@ -30,31 +30,43 @@ echo [2/4] Verificando e aplicando migrações de dados...
 python manage.py migrate --noinput
 echo.
 
-:: 4. Checagem de porta 8000
-echo [3/4] Verificando portas de rede...
-netstat -ano | findstr "LISTENING" | findstr ":8000" >nul 2>&1
+:: Detecta se é ambiente de TESTE (Desktop) ou PRODUÇÃO (Documents)
+echo %~dp0 | findstr /i "Desktop ryanmont" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
-    echo [AVISO] Já existe um processo escutando na porta 8000.
+    set AMBIENTE=TESTE
+    set BACKEND_PORT=8001
+    set FRONTEND_PORT=5174
+) else (
+    set AMBIENTE=PRODUCAO
+    set BACKEND_PORT=8000
+    set FRONTEND_PORT=5173
+)
+
+:: 4. Checagem de porta
+echo [3/4] Verificando porta %BACKEND_PORT%...
+netstat -ano | findstr "LISTENING" | findstr ":%BACKEND_PORT%" >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    echo [AVISO] Já existe um processo escutando na porta %BACKEND_PORT%.
     echo Se o sistema já estiver funcionando, você pode fechar esta janela.
 )
 
 :: 5. Inicia o Backend Waitress
-echo [4/4] Iniciando Servidor Web Backend (Waitress - 12 Threads)...
-start "Django (Backend - Waitress)" cmd /k "cd /d %~dp0 && call venv\Scripts\activate.bat && python -m waitress --listen=0.0.0.0:8000 --threads=12 core.wsgi:application || pause"
+echo [4/4] Iniciando Servidor Web Backend (%AMBIENTE% - Porta %BACKEND_PORT%)...
+start "Django (%AMBIENTE% - %BACKEND_PORT%)" cmd /k "cd /d %~dp0 && call venv\Scripts\activate.bat && python -m waitress --listen=0.0.0.0:%BACKEND_PORT% --threads=12 core.wsgi:application || pause"
 
 :: Aguarda 3 segundos
 timeout /t 3 /nobreak >nul
 
 :: 6. Inicia o Frontend Vite (se necessário para ambiente de desenvolvimento)
 if exist "frontend\package.json" (
-    start "Frontend (Vite)" cmd /k "cd /d %~dp0frontend && yarn dev --host || pause"
+    start "Frontend (%AMBIENTE% - %FRONTEND_PORT%)" cmd /k "cd /d %~dp0frontend && set VITE_PORT=%FRONTEND_PORT% && yarn dev --host --port %FRONTEND_PORT% || pause"
 )
 
 echo.
 echo ===============================================================================
-echo [SUCESSO] Sistema iniciado!
-echo Acesso local:    http://localhost:5173/ ou http://localhost:8000/
-echo Acesso na rede:  http://%COMPUTERNAME%:5173/ (ou veja o IP com diagnostico.bat)
+echo [SUCESSO] Sistema de %AMBIENTE% iniciado com sucesso!
+echo Acesso local:    http://localhost:%FRONTEND_PORT%/
+echo Acesso na rede:  http://%COMPUTERNAME%:%FRONTEND_PORT%/ (ou veja o IP com diagnostico.bat)
 echo.
 echo Para monitoramento automático e auto-recuperação, execute:
 echo menu_emergencia.bat (Opção 7) ou python watchdog.py

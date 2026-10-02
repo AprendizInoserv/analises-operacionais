@@ -36,9 +36,11 @@ staticfiles/
 *.swp
 *.swo
 
-# Sistema operacional
+# Sistema operacional e Office
 .DS_Store
 Thumbs.db
+~$*
+*.tmp
 # Migrations não devem ser ignoradas; mantemos elas no Git
 
 # Scripts operacionais versionados

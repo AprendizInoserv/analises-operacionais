@@ -187,19 +187,20 @@ REST_FRAMEWORK = {
     },
 }
 
-# Detecção dinâmica de ambiente (TESTE em Desktop vs PRODUCAO em Documents)
+# Detecção dinâmica de ambiente e rede
 import socket
 from urllib.parse import urlparse
-from core.network_utils import get_local_ip, resolve_frontend_url
+from core.network_utils import get_local_ip, get_active_vite_port, resolve_frontend_url
 
 IS_TESTE = ("desktop" in str(BASE_DIR).lower() and "ryanmont" in str(BASE_DIR).lower())
-default_frontend_port = 5174 if IS_TESTE else 5173
 
 # IP dinâmico da máquina na rede local (ex: detecta 10.1.1.111 automaticamente)
 LOCAL_IP = get_local_ip()
 
-# URL do frontend para compor links de redefinição de senha e origens dinâmicas do CORS/CSRF
-# Por que existe: Permite gerar links funcionais na rede local independente de trocas de IP via DHCP.
+# Detecta dinamicamente a porta ativa em que o Vite está rodando (5173 ou 5174)
+default_frontend_port = get_active_vite_port(5173)
+
+# URL do frontend correspondente exatamente à tela de inicialização do Vite
 raw_frontend_url = config("FRONTEND_URL", default=f"http://localhost:{default_frontend_port}")
 FRONTEND_URL = resolve_frontend_url(raw_frontend_url, default_port=default_frontend_port)
 

@@ -43,6 +43,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     try {
       const response = await api.post('/usuarios/api/recuperar-senha/', {
         email: forgotEmail.trim(),
+        origin: window.location.origin,
       });
       if (response.data.success) {
         toast.success('Se o e-mail estiver cadastrado, o link foi enviado!');

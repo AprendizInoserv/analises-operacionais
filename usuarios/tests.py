@@ -103,13 +103,13 @@ class NetworkUtilsTests(TestCase):
         from core.network_utils import get_local_ip, resolve_frontend_url
 
         local_ip = get_local_ip()
-        # Se receber o IP antigo (.93), deve atualizar para o IP atual
-        resolved = resolve_frontend_url("http://10.1.1.93:5174", default_port=5174)
-        self.assertEqual(resolved, f"http://{local_ip}:5174")
+        # Se receber o IP antigo (.93) na 5173, deve atualizar para o IP atual na 5173
+        resolved = resolve_frontend_url("http://10.1.1.93:5173", default_port=5173)
+        self.assertEqual(resolved, f"http://{local_ip}:5173")
 
         # Se receber localhost, deve atualizar para o IP atual
-        resolved_local = resolve_frontend_url("http://localhost:5174", default_port=5174)
-        self.assertEqual(resolved_local, f"http://{local_ip}:5174")
+        resolved_local = resolve_frontend_url("http://localhost:5173", default_port=5173)
+        self.assertEqual(resolved_local, f"http://{local_ip}:5173")
 
         # Preserva domínios públicos
         resolved_domain = resolve_frontend_url("https://sistema.minhaempresa.com.br")
@@ -121,17 +121,25 @@ class NetworkUtilsTests(TestCase):
         local_ip = get_local_ip()
         factory = APIRequestFactory()
 
-        # Requisição com Origin contendo IP antigo .93
-        req1 = factory.post("/usuarios/api/recuperar-senha/", HTTP_ORIGIN="http://10.1.1.93:5174")
-        self.assertEqual(get_frontend_base_url(req1), f"http://{local_ip}:5174")
+        # Requisição com Origin contendo IP antigo .93 na porta 5173
+        req1 = factory.post("/usuarios/api/recuperar-senha/", HTTP_ORIGIN="http://10.1.1.93:5173")
+        self.assertEqual(get_frontend_base_url(req1), f"http://{local_ip}:5173")
+
+        # Requisição com payload 'origin' enviado pelo frontend Vite
+        req2 = factory.post(
+            "/usuarios/api/recuperar-senha/",
+            {"origin": f"http://{local_ip}:5173"},
+            format="json"
+        )
+        self.assertEqual(get_frontend_base_url(req2), f"http://{local_ip}:5173")
 
         # Requisição com Origin contendo localhost
-        req2 = factory.post("/usuarios/api/recuperar-senha/", HTTP_ORIGIN="http://localhost:5174")
-        self.assertEqual(get_frontend_base_url(req2), f"http://{local_ip}:5174")
+        req3 = factory.post("/usuarios/api/recuperar-senha/", HTTP_ORIGIN="http://localhost:5173")
+        self.assertEqual(get_frontend_base_url(req3), f"http://{local_ip}:5173")
 
         # Requisição com Referer contendo IP antigo
-        req3 = factory.post("/usuarios/api/recuperar-senha/", HTTP_REFERER="http://10.1.1.93:5174/recuperar-senha")
-        self.assertEqual(get_frontend_base_url(req3), f"http://{local_ip}:5174")
+        req4 = factory.post("/usuarios/api/recuperar-senha/", HTTP_REFERER="http://10.1.1.93:5173/recuperar-senha")
+        self.assertEqual(get_frontend_base_url(req4), f"http://{local_ip}:5173")
 
 
 class RecuperarSenhaDinamicaTests(TestCase):
@@ -154,12 +162,15 @@ class RecuperarSenhaDinamicaTests(TestCase):
 
         local_ip = get_local_ip()
 
-        # Simula requisição vinda do frontend em teste (ex: na porta 5174 com o IP antigo 10.1.1.93)
+        # Simula requisição vinda do frontend Vite na porta 5173 com o IP antigo 10.1.1.93
         request = self.factory.post(
             "/usuarios/api/recuperar-senha/",
-            {"email": "usuario_teste@empresa.com"},
+            {
+                "email": "usuario_teste@empresa.com",
+                "origin": "http://10.1.1.93:5173"
+            },
             format="json",
-            HTTP_ORIGIN="http://10.1.1.93:5174"
+            HTTP_ORIGIN="http://10.1.1.93:5173"
         )
         response = api_recuperar_senha(request)
 
@@ -171,9 +182,10 @@ class RecuperarSenhaDinamicaTests(TestCase):
         email_enviado = mail.outbox[0]
 
         # O link no e-mail NÃO deve conter o IP antigo 10.1.1.93
-        self.assertNotIn("http://10.1.1.93:5174", email_enviado.body)
+        self.assertNotIn("http://10.1.1.93", email_enviado.body)
 
-        # O link DEVE conter o IP dinâmico da rede atual
-        esperado = f"http://{local_ip}:5174/redefinir-senha?uidb64="
+        # O link DEVE conter exatamente o link exibido pelo Vite (http://10.1.1.111:5173/...)
+        esperado = f"http://{local_ip}:5173/redefinir-senha?uidb64="
         self.assertIn(esperado, email_enviado.body)
+
 

@@ -62,7 +62,6 @@ logs/
 *.xls
 *.xlsm
 *.docx
-!DOCUMENTACAO_DO_SISTEMA.docx
 lojas/fixtures/de_para_verbas.json
 !lojas/fixtures/de_para_verbas.json.example
 scratch/

@@ -67,7 +67,13 @@ echo.
 echo ===============================================================================
 echo [SUCESSO] Sistema de %AMBIENTE% iniciado com sucesso!
 echo Acesso local:    http://localhost:%FRONTEND_PORT%/
-echo Acesso na rede:  http://%COMPUTERNAME%:%FRONTEND_PORT%/
+set "NETWORK_IP="
+for /f "delims=" %%i in ('python -c "from core.network_utils import get_local_ip; print(get_local_ip())" 2^>nul') do set "NETWORK_IP=%%i"
+if defined NETWORK_IP (
+    echo Acesso na rede:  http://%NETWORK_IP%:%FRONTEND_PORT%/ (ou http://%COMPUTERNAME%:%FRONTEND_PORT%/)
+) else (
+    echo Acesso na rede:  http://%COMPUTERNAME%:%FRONTEND_PORT%/
+)
 echo.
 echo Para monitoramento automatico e auto-recuperacao, execute:
 echo menu_emergencia.bat (Opcao 7) ou python watchdog.py

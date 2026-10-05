@@ -187,27 +187,34 @@ REST_FRAMEWORK = {
     },
 }
 
-# URL do frontend para compor os links de redefinição de senha e configurar origens dinâmicas do CORS/CSRF
-# Por que existe: Permite gerar o link completo de redefinição de senha apontando para a porta do React.
-FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:5173")
+# Detecção dinâmica de ambiente (TESTE em Desktop vs PRODUCAO em Documents)
+import socket
+from urllib.parse import urlparse
+from core.network_utils import get_local_ip, resolve_frontend_url
 
-# Evita colisão de cookies/sessão ao rodar as instâncias de teste e produção no mesmo IP (como 10.1.1.93 ou localhost).
+IS_TESTE = ("desktop" in str(BASE_DIR).lower() and "ryanmont" in str(BASE_DIR).lower())
+default_frontend_port = 5174 if IS_TESTE else 5173
+
+# IP dinâmico da máquina na rede local (ex: detecta 10.1.1.111 automaticamente)
+LOCAL_IP = get_local_ip()
+
+# URL do frontend para compor links de redefinição de senha e origens dinâmicas do CORS/CSRF
+# Por que existe: Permite gerar links funcionais na rede local independente de trocas de IP via DHCP.
+raw_frontend_url = config("FRONTEND_URL", default=f"http://localhost:{default_frontend_port}")
+FRONTEND_URL = resolve_frontend_url(raw_frontend_url, default_port=default_frontend_port)
+
+# Evita colisão de cookies/sessão ao rodar as instâncias de teste e produção no mesmo IP ou host.
 # O navegador compartilha cookies entre portas do mesmo domínio, então alteramos os nomes dos cookies na versão de testes (porta 5174).
-if FRONTEND_URL and "5174" in FRONTEND_URL:
+if IS_TESTE or (FRONTEND_URL and "5174" in FRONTEND_URL):
     SESSION_COOKIE_NAME = "sessionid_teste"
     CSRF_COOKIE_NAME = "csrftoken_teste"
 
 # Permite requisições de origens cruzadas (CORS) para viabilizar a comunicação com o React no frontend.
-# Quando usamos credentials (cookies de sessão), não podemos usar wildcard '*'. Devemos especificar as origens.
 CORS_ALLOW_CREDENTIALS = True
 
 # Por que existe: Define as origens permitidas para conexões CORS e proteção CSRF.
-# Como o frontend de testes roda em uma porta diferente (ex: 5174), extraímos a porta do FRONTEND_URL
-# e detectamos dinamicamente os IPs da máquina na rede local para aceitar as conexões de rede de outros dispositivos.
-import socket
-from urllib.parse import urlparse
-
-frontend_port = 5173
+# Extraímos a porta do FRONTEND_URL e registramos dinamicamente todos os IPs locais e hostnames da máquina.
+frontend_port = default_frontend_port
 if FRONTEND_URL:
     try:
         parsed_url = urlparse(FRONTEND_URL)
@@ -221,7 +228,6 @@ CORS_ALLOWED_ORIGINS = [
     f"http://127.0.0.1:{frontend_port}",
 ]
 
-# Origens confiáveis para proteção CSRF do Django, necessária para requisições POST/PUT/DELETE
 CSRF_TRUSTED_ORIGINS = [
     f"http://localhost:{frontend_port}",
     f"http://127.0.0.1:{frontend_port}",
@@ -236,18 +242,35 @@ if FRONTEND_URL:
 
 try:
     hostname = socket.gethostname()
-    # Adiciona o nome do computador (hostname) às origens permitidas (tanto em maiúsculas quanto minúsculas)
-    if hostname:
-        CORS_ALLOWED_ORIGINS.append(f"http://{hostname.lower()}:{frontend_port}")
-        CORS_ALLOWED_ORIGINS.append(f"http://{hostname}:{frontend_port}")
-        CSRF_TRUSTED_ORIGINS.append(f"http://{hostname.lower()}:{frontend_port}")
-        CSRF_TRUSTED_ORIGINS.append(f"http://{hostname}:{frontend_port}")
+    ports_to_trust = set([frontend_port, 5173, 5174])
     
-    # Adiciona todos os IPs da máquina na rede local
-    ips = socket.gethostbyname_ex(hostname)[2]
-    for ip in ips:
-        CORS_ALLOWED_ORIGINS.append(f"http://{ip}:{frontend_port}")
-        CSRF_TRUSTED_ORIGINS.append(f"http://{ip}:{frontend_port}")
+    # Registra o hostname da máquina
+    if hostname:
+        for p in ports_to_trust:
+            for proto in ["http", "https"]:
+                for h in [hostname.lower(), hostname]:
+                    origin = f"{proto}://{h}:{p}"
+                    if origin not in CORS_ALLOWED_ORIGINS:
+                        CORS_ALLOWED_ORIGINS.append(origin)
+                    if origin not in CSRF_TRUSTED_ORIGINS:
+                        CSRF_TRUSTED_ORIGINS.append(origin)
+
+    # Registra todos os IPs da máquina na rede local
+    all_ips = set([LOCAL_IP])
+    try:
+        all_ips.update(socket.gethostbyname_ex(hostname)[2])
+    except Exception:
+        pass
+
+    for ip in all_ips:
+        if ip and not ip.startswith("127."):
+            for p in ports_to_trust:
+                for proto in ["http", "https"]:
+                    origin = f"{proto}://{ip}:{p}"
+                    if origin not in CORS_ALLOWED_ORIGINS:
+                        CORS_ALLOWED_ORIGINS.append(origin)
+                    if origin not in CSRF_TRUSTED_ORIGINS:
+                        CSRF_TRUSTED_ORIGINS.append(origin)
 except Exception:
     pass
 

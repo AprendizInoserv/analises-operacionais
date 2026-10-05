@@ -69,3 +69,111 @@ class PermissoesDinamicasTests(TestCase):
                     IsGestaoOrAdministrador().has_permission(request, self.view),
                     esperado,
                 )
+
+
+class NetworkUtilsTests(TestCase):
+    """Testa os utilitários de detecção dinâmica de rede e resolução de URLs."""
+
+    def test_get_local_ip_retorna_ipv4_valido(self):
+        from core.network_utils import get_local_ip
+        import ipaddress
+
+        ip = get_local_ip()
+        self.assertIsInstance(ip, str)
+        # Deve ser um IPv4 válido
+        parsed_ip = ipaddress.ip_address(ip)
+        self.assertEqual(parsed_ip.version, 4)
+
+    def test_classificacao_de_hosts_locais_e_publicos(self):
+        from core.network_utils import is_local_or_private_host
+
+        self.assertTrue(is_local_or_private_host("localhost"))
+        self.assertTrue(is_local_or_private_host("127.0.0.1"))
+        self.assertTrue(is_local_or_private_host("10.1.1.93"))
+        self.assertTrue(is_local_or_private_host("10.1.1.111"))
+        self.assertTrue(is_local_or_private_host("192.168.1.100"))
+        self.assertTrue(is_local_or_private_host("172.16.0.5"))
+        self.assertTrue(is_local_or_private_host("computador-local"))
+
+        # Domínios públicos não devem ser classificados como locais
+        self.assertFalse(is_local_or_private_host("sistema.empresa.com.br"))
+        self.assertFalse(is_local_or_private_host("google.com"))
+
+    def test_resolve_frontend_url_atualiza_ip_antigo_para_ip_atual(self):
+        from core.network_utils import get_local_ip, resolve_frontend_url
+
+        local_ip = get_local_ip()
+        # Se receber o IP antigo (.93), deve atualizar para o IP atual
+        resolved = resolve_frontend_url("http://10.1.1.93:5174", default_port=5174)
+        self.assertEqual(resolved, f"http://{local_ip}:5174")
+
+        # Se receber localhost, deve atualizar para o IP atual
+        resolved_local = resolve_frontend_url("http://localhost:5174", default_port=5174)
+        self.assertEqual(resolved_local, f"http://{local_ip}:5174")
+
+        # Preserva domínios públicos
+        resolved_domain = resolve_frontend_url("https://sistema.minhaempresa.com.br")
+        self.assertEqual(resolved_domain, "https://sistema.minhaempresa.com.br")
+
+    def test_get_frontend_base_url_com_request(self):
+        from core.network_utils import get_local_ip, get_frontend_base_url
+
+        local_ip = get_local_ip()
+        factory = APIRequestFactory()
+
+        # Requisição com Origin contendo IP antigo .93
+        req1 = factory.post("/usuarios/api/recuperar-senha/", HTTP_ORIGIN="http://10.1.1.93:5174")
+        self.assertEqual(get_frontend_base_url(req1), f"http://{local_ip}:5174")
+
+        # Requisição com Origin contendo localhost
+        req2 = factory.post("/usuarios/api/recuperar-senha/", HTTP_ORIGIN="http://localhost:5174")
+        self.assertEqual(get_frontend_base_url(req2), f"http://{local_ip}:5174")
+
+        # Requisição com Referer contendo IP antigo
+        req3 = factory.post("/usuarios/api/recuperar-senha/", HTTP_REFERER="http://10.1.1.93:5174/recuperar-senha")
+        self.assertEqual(get_frontend_base_url(req3), f"http://{local_ip}:5174")
+
+
+class RecuperarSenhaDinamicaTests(TestCase):
+    """Testa se a API de recuperação de senha envia o link com o IP atual da rede."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.factory = APIRequestFactory()
+        self.user = User.objects.create_user(
+            username="usuario_teste",
+            email="usuario_teste@empresa.com",
+            password="SenhaForte123!@#"
+        )
+
+    def test_api_recuperar_senha_envia_link_com_ip_atual(self):
+        from django.core import mail
+        from core.network_utils import get_local_ip
+        from .views import api_recuperar_senha
+
+        local_ip = get_local_ip()
+
+        # Simula requisição vinda do frontend em teste (ex: na porta 5174 com o IP antigo 10.1.1.93)
+        request = self.factory.post(
+            "/usuarios/api/recuperar-senha/",
+            {"email": "usuario_teste@empresa.com"},
+            format="json",
+            HTTP_ORIGIN="http://10.1.1.93:5174"
+        )
+        response = api_recuperar_senha(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data.get("success"))
+
+        # Verifica se o e-mail foi gerado
+        self.assertEqual(len(mail.outbox), 1)
+        email_enviado = mail.outbox[0]
+
+        # O link no e-mail NÃO deve conter o IP antigo 10.1.1.93
+        self.assertNotIn("http://10.1.1.93:5174", email_enviado.body)
+
+        # O link DEVE conter o IP dinâmico da rede atual
+        esperado = f"http://{local_ip}:5174/redefinir-senha?uidb64="
+        self.assertIn(esperado, email_enviado.body)
+

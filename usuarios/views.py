@@ -12,6 +12,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 
+from core.network_utils import get_frontend_base_url
 from .permissions import IsAdministrador
 from .serializers import UsuarioSerializer, UsuarioCreateSerializer
 
@@ -40,12 +41,13 @@ def usuario_create(request):
         # Envia e-mail de boas-vindas com dados de acesso se houver e-mail cadastrado
         email = novo_usuario.email
         if email:
+            frontend_base = get_frontend_base_url(request)
             senha_plana = request.data.get("password", "")
             subject = "Sua conta foi criada no Sistema de Análises Operacionais"
             message = f"Olá, {novo_usuario.first_name or novo_usuario.username}!\n\n" \
                       f"Sua conta no Sistema de Análises Operacionais foi criada por um administrador.\n\n" \
                       f"Seguem abaixo os seus dados de acesso:\n" \
-                      f"Link do sistema: {settings.FRONTEND_URL}/login\n" \
+                      f"Link do sistema: {frontend_base}/login\n" \
                       f"Usuário: {novo_usuario.username}\n" \
                       f"Senha: {senha_plana}\n\n" \
                       f"Por favor, acesse o sistema utilizando as credenciais acima.\n\n" \
@@ -405,7 +407,8 @@ def api_recuperar_senha(request):
     uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
     token = default_token_generator.make_token(user)
     
-    link = f"{settings.FRONTEND_URL}/redefinir-senha?uidb64={uidb64}&token={token}"
+    frontend_base = get_frontend_base_url(request)
+    link = f"{frontend_base}/redefinir-senha?uidb64={uidb64}&token={token}"
     
     subject = "Recuperação de Senha - Sistema de Análises Operacionais"
     message = f"Olá, {user.first_name or user.username}!\n\n" \

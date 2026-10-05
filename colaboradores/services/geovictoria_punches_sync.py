@@ -102,14 +102,21 @@ def sincronizar_punches_api(start_date: date, end_date: date, progress_callback=
             "novas_presencas_salvas": 0
         }
 
-    # Divide os CPFs em lotes de 100 para evitar estourar o limite de tamanho do request/resposta
-    batch_size = 100
+    # O endpoint /AttendanceBook/PunchesByShifts da GeoVictoria possui um limite estrito de no máximo
+    # 1.500 registros por requisição ("OutOfLimitException: greater than 1500").
+    # Para 30 dias (onde cada colaborador pode ter de 60 a 120 batidas/turnos), lotes de 100 CPFs
+    # estouram esse limite (gerando erro 400).
+    # Com batch_size = 20, temos no máximo ~600 a 1200 registros por requisição, ficando 100% dentro do limite.
+    dias_consulta = (end_date - start_date).days if end_date >= start_date else 1
+    batch_size = 20 if dias_consulta > 7 else 50
     cpf_chunks = [cpfs_list[i:i + batch_size] for i in range(0, len(cpfs_list), batch_size)]
 
     total_batidas_processadas = 0
     total_inseridos = 0
     paginas_lidas_count = 0
     total_chunks = len(cpf_chunks)
+
+    import time
 
     for idx, chunk in enumerate(cpf_chunks):
         chunk_num = idx + 1
@@ -137,10 +144,20 @@ def sincronizar_punches_api(start_date: date, end_date: date, progress_callback=
         if progress_callback:
             progress_callback(msg)
 
-        try:
-            payload = _geovictoria_request("/AttendanceBook/PunchesByShifts", body=body, token=token)
-        except Exception as e:
-            logger.error(f"Erro ao buscar lote {chunk_num}: {e}")
+        payload = None
+        # Sistema de retentativa inteligente (até 3 tentativas) para lidar com eventuais instabilidades de rede
+        for attempt in range(1, 4):
+            try:
+                payload = _geovictoria_request("/AttendanceBook/PunchesByShifts", body=body, token=token)
+                break
+            except Exception as e:
+                logger.warning(f"Lote {chunk_num} tentativa {attempt}/3 falhou: {e}")
+                if attempt < 3:
+                    time.sleep(1.5 * attempt)
+                else:
+                    logger.error(f"Erro definitivo ao buscar lote {chunk_num}: {e}")
+
+        if not payload:
             continue
 
         punches = []

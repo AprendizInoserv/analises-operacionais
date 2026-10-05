@@ -191,17 +191,21 @@ export default function Headcount() {
     }, 800);
 
     try {
-      await api.post(`/lojas/api/presencas/sincronizar-loja/${lojaId}/`, { dias: 30 });
+      const resp = await api.post(`/lojas/api/presencas/sincronizar-loja/${lojaId}/`, { dias: 30 });
       clearInterval(interval);
-      toast.success('Sincronização dos últimos 30 dias concluída com sucesso!', { id: toastId });
+      const msgSucesso = resp.data?.novas_presencas_salvas !== undefined
+        ? `Sincronização concluída! ${resp.data.novas_presencas_salvas} novas presenças registradas.`
+        : 'Sincronização dos últimos 30 dias concluída com sucesso!';
+      toast.success(msgSucesso, { id: toastId });
       fetchHeadcount();
       if (selectedLoja) {
         fetchCalendario(selectedLoja.id, anoMes);
       }
-    } catch (err) {
+    } catch (err: any) {
       clearInterval(interval);
       console.error('Erro ao disparar sincronização da loja:', err);
-      toast.error('Falha ao sincronizar batidas dos últimos 30 dias desta loja.', { id: toastId });
+      const msgErro = err.response?.data?.error || err.message || 'Falha ao sincronizar batidas dos últimos 30 dias desta loja.';
+      toast.error(`Falha na sincronização: ${msgErro}`, { id: toastId, duration: 6000 });
     } finally {
       setSyncingLoja30(false);
     }

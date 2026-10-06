@@ -9,19 +9,36 @@ from datetime import datetime, date
 from typing import Dict, Any, Optional
 import pandas as pd
 
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4, landscape
-from reportlab.lib.units import inch
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import (
-    SimpleDocTemplate,
-    Table,
-    TableStyle,
-    Paragraph,
-    Spacer,
-    KeepTogether,
-)
-from reportlab.pdfgen import canvas
+try:
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.units import inch
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import (
+        SimpleDocTemplate,
+        Table,
+        TableStyle,
+        Paragraph,
+        Spacer,
+        KeepTogether,
+    )
+    from reportlab.pdfgen import canvas
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
+    colors = None
+    landscape = None
+    A4 = None
+    inch = None
+    getSampleStyleSheet = None
+    ParagraphStyle = None
+    SimpleDocTemplate = None
+    Table = None
+    TableStyle = None
+    Paragraph = None
+    Spacer = None
+    KeepTogether = None
+    canvas = None
 
 
 def sanitize_filename(filename: str) -> str:
@@ -31,42 +48,45 @@ def sanitize_filename(filename: str) -> str:
     return clean if clean else 'SEM_NOME'
 
 
-class NumberedCanvas(canvas.Canvas):
-    """Canvas com numeração de páginas profissional e rodapé de auditoria."""
+if REPORTLAB_AVAILABLE:
+    class NumberedCanvas(canvas.Canvas):
+        """Canvas com numeração de páginas profissional e rodapé de auditoria."""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._saved_page_states = []
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._saved_page_states = []
 
-    def showPage(self):
-        self._saved_page_states.append(dict(self.__dict__))
-        self._startPage()
+        def showPage(self):
+            self._saved_page_states.append(dict(self.__dict__))
+            self._startPage()
 
-    def save(self):
-        num_pages = len(self._saved_page_states)
-        for state in self._saved_page_states:
-            self.__dict__.update(state)
-            self.draw_page_number(num_pages)
-            super().showPage()
-        super().save()
+        def save(self):
+            num_pages = len(self._saved_page_states)
+            for state in self._saved_page_states:
+                self.__dict__.update(state)
+                self.draw_page_number(num_pages)
+                super().showPage()
+            super().save()
 
-    def draw_page_number(self, page_count):
-        self.saveState()
-        self.setFont("Helvetica", 7)
-        self.setFillColor(colors.HexColor("#64748b"))
-        # Linha fina no rodapé
-        self.setStrokeColor(colors.HexColor("#cbd5e1"))
-        self.setLineWidth(0.5)
-        self.line(20, 22, 822, 22)
+        def draw_page_number(self, page_count):
+            self.saveState()
+            self.setFont("Helvetica", 7)
+            self.setFillColor(colors.HexColor("#64748b"))
+            # Linha fina no rodapé
+            self.setStrokeColor(colors.HexColor("#cbd5e1"))
+            self.setLineWidth(0.5)
+            self.line(20, 22, 822, 22)
 
-        # Texto do rodapé
-        timestamp = datetime.now().strftime("%d/%m/%Y às %H:%M:%S")
-        footer_left = f"Sistema de Gestão de Faltas — Motor 2.0  •  Emissão: {timestamp}  •  Documento Confidencial Operacional"
-        footer_right = f"Página {self._pageNumber} de {page_count}"
+            # Texto do rodapé
+            timestamp = datetime.now().strftime("%d/%m/%Y às %H:%M:%S")
+            footer_left = f"Sistema de Gestão de Faltas — Motor 2.0  •  Emissão: {timestamp}  •  Documento Confidencial Operacional"
+            footer_right = f"Página {self._pageNumber} de {page_count}"
 
-        self.drawString(20, 12, footer_left)
-        self.drawRightString(822, 12, footer_right)
-        self.restoreState()
+            self.drawString(20, 12, footer_left)
+            self.drawRightString(822, 12, footer_right)
+            self.restoreState()
+else:
+    NumberedCanvas = None
 
 
 def export_store_pdf(
@@ -79,6 +99,9 @@ def export_store_pdf(
     ano: Optional[int] = None,
 ) -> str:
     """Gera o arquivo PDF individual da loja sanitizado para Windows."""
+    if not REPORTLAB_AVAILABLE:
+        raise RuntimeError("A biblioteca 'reportlab' é necessária para exportação em PDF. Instale-a com: pip install reportlab")
+
     os.makedirs(output_dir, exist_ok=True)
     clean_store = sanitize_filename(store_name)
     pdf_filename = f"relatorio_{clean_store}.pdf"

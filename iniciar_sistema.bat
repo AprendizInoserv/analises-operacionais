@@ -19,6 +19,17 @@ if not exist "venv\Scripts\activate.bat" (
 
 call venv\Scripts\activate.bat
 
+rem 1.1 Verificacao automatica do repositorio remoto Git
+for /f "delims=" %%u in ('git remote get-url origin 2^>nul') do set "REMOTE_URL=%%u"
+if defined REMOTE_URL (
+    echo %REMOTE_URL% | findstr /i "AprendizInoserv/analises-operacionais" >nul 2>&1
+    if errorlevel 1 (
+        echo [AVISO] O repositorio remoto nao e o AprendizInoserv! Atualizando automaticamente...
+        git remote set-url origin https://github.com/AprendizInoserv/analises-operacionais.git
+        echo [OK] Repositorio remoto reconfigurado para AprendizInoserv/analises-operacionais.
+    )
+)
+
 rem 2. Executa backup preventivo antes de iniciar o sistema
 echo [1/4] Realizando copia de seguranca preventiva do banco de dados...
 python manage.py backup_db

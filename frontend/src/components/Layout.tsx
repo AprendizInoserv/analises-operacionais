@@ -80,9 +80,18 @@ export default function Layout({ isAuthenticated, username, email, onLogout, rol
     pageName = 'Prêmios';
   } else if (path === 'faltas') {
     sector = 'Gestão de Faltas';
-    pageName = 'Painel de Faltas';
+    const params = new URLSearchParams(location.search);
+    const client = params.get('client');
+    const view = params.get('view');
+    if (client === 'carrefour') pageName = 'Carrefour';
+    else if (client === 'protege') pageName = 'Protege';
+    else if (client === 'assai_atacadao') pageName = 'Assaí & Atacadão';
+    else if (client === 'dia') pageName = 'Rede Dia';
+    else if (view === 'tarifas') pageName = 'Lojas & Tarifas';
+    else if (view === 'historico_banco') pageName = 'Histórico';
+    else pageName = 'Painel de Faltas';
   } else if (path === 'butanta') {
-    sector = 'Faltas Shoppings';
+    sector = 'Gestão de Faltas';
     pageName = 'Faltas Shoppings';
   } else if (path === 'importacoes') {
     sector = 'Configurações';

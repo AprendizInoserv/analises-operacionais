@@ -19,7 +19,7 @@ export default function ButantaPage() {
   };
 
   return (
-    <div className="w-full space-y-6">
+    <div className="gestao-faltas-root w-full space-y-6">
       <FechamentoButanta showToast={showToast} onVoltar={undefined} />
 
       {toast.message && (

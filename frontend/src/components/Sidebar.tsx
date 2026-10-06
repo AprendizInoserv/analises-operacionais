@@ -64,6 +64,7 @@ export default function Sidebar({ username = 'Usuário', email = '', onLogout, p
   const { open } = useSidebar();
   const [colabSubOpen, setColabSubOpen] = useState(true);
   const [apoioSubOpen, setApoioSubOpen] = useState(true);
+  const [faltasSubOpen, setFaltasSubOpen] = useState(true);
 
   const handleLogoutClick = async () => {
     try {
@@ -388,115 +389,125 @@ export default function Sidebar({ username = 'Usuário', email = '', onLogout, p
         </SidebarGroup>
 
         {/* Setor Gestão de Faltas */}
-        {(permissions?.faltas?.view ?? true) && (
+        {((permissions?.faltas?.view ?? true) || (permissions?.butanta?.view ?? true)) && (
           <SidebarGroup>
             <SidebarGroupLabel>Gestão de Faltas</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={location.pathname === '/faltas' && !location.search}
-                    title={!open ? "Painel de Faltas" : undefined}
-                  >
-                    <Link to="/faltas">
+                {/* Fechamentos de Faltas com Submenu Colapsável */}
+                {(permissions?.faltas?.view ?? true) && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      onClick={() => {
+                        if (!open) {
+                          navigate('/faltas');
+                        } else {
+                          setFaltasSubOpen(!faltasSubOpen);
+                        }
+                      }}
+                      isActive={location.pathname === '/faltas'}
+                      title={!open ? "Fechamentos" : undefined}
+                    >
                       <FileSpreadsheet className="h-5 w-5 shrink-0" />
-                      {open && <span className="truncate">Painel Geral</span>}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                      {open && (
+                        <>
+                          <span className="truncate flex-1 text-left">Fechamentos</span>
+                          {faltasSubOpen ? (
+                            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
+                          ) : (
+                            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
+                          )}
+                        </>
+                      )}
+                    </SidebarMenuButton>
 
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={location.pathname === '/faltas' && location.search.includes('client=carrefour')}
-                    title={!open ? "Carrefour" : undefined}
-                  >
-                    <Link to="/faltas?client=carrefour">
-                      <Building2 className="h-5 w-5 shrink-0 text-blue-400" />
-                      {open && <span className="truncate">Carrefour</span>}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                    {open && faltasSubOpen && (
+                      <SidebarMenuSub>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuButton 
+                            asChild 
+                            isActive={location.pathname === '/faltas' && !location.search}
+                          >
+                            <Link to="/faltas">
+                              <span className="truncate">Painel Geral</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuButton 
+                            asChild 
+                            isActive={location.pathname === '/faltas' && location.search.includes('client=carrefour')}
+                          >
+                            <Link to="/faltas?client=carrefour">
+                              <span className="truncate">Carrefour</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuButton 
+                            asChild 
+                            isActive={location.pathname === '/faltas' && location.search.includes('client=protege')}
+                          >
+                            <Link to="/faltas?client=protege">
+                              <span className="truncate">Protege</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuButton 
+                            asChild 
+                            isActive={location.pathname === '/faltas' && location.search.includes('client=assai_atacadao')}
+                          >
+                            <Link to="/faltas?client=assai_atacadao">
+                              <span className="truncate">Assaí & Atacadão</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuButton 
+                            asChild 
+                            isActive={location.pathname === '/faltas' && location.search.includes('view=tarifas')}
+                          >
+                            <Link to="/faltas?view=tarifas">
+                              <span className="truncate">Lojas & Tarifas</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuButton 
+                            asChild 
+                            isActive={location.pathname === '/faltas' && location.search.includes('view=historico_banco')}
+                          >
+                            <Link to="/faltas?view=historico_banco">
+                              <span className="truncate">Histórico</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuSubItem>
+                      </SidebarMenuSub>
+                    )}
+                  </SidebarMenuItem>
+                )}
 
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={location.pathname === '/faltas' && location.search.includes('client=protege')}
-                    title={!open ? "Protege" : undefined}
-                  >
-                    <Link to="/faltas?client=protege">
-                      <ShieldCheck className="h-5 w-5 shrink-0 text-amber-400" />
-                      {open && <span className="truncate">Protege</span>}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={location.pathname === '/faltas' && location.search.includes('client=assai_atacadao')}
-                    title={!open ? "Assaí & Atacadão" : undefined}
-                  >
-                    <Link to="/faltas?client=assai_atacadao">
-                      <Store className="h-5 w-5 shrink-0 text-teal-400" />
-                      {open && <span className="truncate">Assaí & Atacadão</span>}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={location.pathname === '/faltas' && location.search.includes('view=tarifas')}
-                    title={!open ? "Lojas & Tarifas" : undefined}
-                  >
-                    <Link to="/faltas?view=tarifas">
-                      <Sliders className="h-5 w-5 shrink-0" />
-                      {open && <span className="truncate">Lojas & Tarifas</span>}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={location.pathname === '/faltas' && location.search.includes('view=historico_banco')}
-                    title={!open ? "Histórico de Fechamentos" : undefined}
-                  >
-                    <Link to="/faltas?view=historico_banco">
-                      <History className="h-5 w-5 shrink-0" />
-                      {open && <span className="truncate">Histórico</span>}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                {/* Faltas Shoppings */}
+                {(permissions?.butanta?.view ?? true) && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      asChild 
+                      isActive={location.pathname === '/butanta'}
+                      title={!open ? "Faltas Shoppings" : undefined}
+                    >
+                      <Link to="/butanta">
+                        <Store className="h-5 w-5 shrink-0 text-cyan-400" />
+                        {open && <span className="truncate">Faltas Shoppings</span>}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         )}
 
-        {/* Setor Faltas Shoppings */}
-        {(permissions?.butanta?.view ?? true) && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Faltas Shoppings</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={location.pathname === '/butanta'}
-                    title={!open ? "Faltas Shoppings" : undefined}
-                  >
-                    <Link to="/butanta">
-                      <Store className="h-5 w-5 shrink-0 text-cyan-400" />
-                      {open && <span className="truncate">Faltas Shoppings</span>}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
 
         {/* Setor Configurações */}
         <SidebarGroup>

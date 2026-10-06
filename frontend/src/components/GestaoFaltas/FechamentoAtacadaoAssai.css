@@ -1,0 +1,767 @@
+/* =========================================================================
+   FECHAMENTO ATACADÃO E ASSAÍ - DESIGN SYSTEM PREMIUM (MOTOR 2.0)
+   ========================================================================= */
+
+.faa-container {
+  width: 100%;
+  animation: faaFadeIn 0.25s ease-out;
+}
+
+@keyframes faaFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 1. Header do Módulo */
+.faa-header-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 22px 26px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.faa-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.faa-brand-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(89, 159, 166, 0.25), rgba(89, 159, 166, 0.08));
+  border: 1px solid var(--border-card-hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-teal);
+  box-shadow: 0 0 16px var(--border-glow);
+  flex-shrink: 0;
+}
+
+.faa-header-title-box h2 {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  margin-bottom: 3px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.faa-header-title-box p {
+  color: var(--text-secondary);
+  font-size: 0.825rem;
+  line-height: 1.4;
+}
+
+.faa-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34d399;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.faa-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.faa-control-pill {
+  background: #191919;
+  border: 1px solid #2a2a2a;
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.825rem;
+  color: var(--text-secondary);
+}
+
+.faa-control-pill select {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+}
+
+.faa-control-pill select option {
+  background: #171717;
+  color: var(--text-primary);
+}
+
+/* 2. Área de Upload de Arquivos */
+.faa-upload-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.faa-upload-card {
+  background: var(--bg-card);
+  border: 2px dashed #2b2b2b;
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  transition: all 0.22s ease;
+  position: relative;
+}
+
+.faa-upload-card:hover {
+  border-color: var(--accent-teal);
+  background: rgba(89, 159, 166, 0.03);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.faa-upload-card.loaded {
+  border-color: rgba(16, 185, 129, 0.5);
+  background: rgba(16, 185, 129, 0.04);
+}
+
+.faa-upload-icon-box {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-md);
+  background: #1c1c1c;
+  border: 1px solid #282828;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-teal);
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.faa-upload-card.loaded .faa-upload-icon-box {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.faa-upload-info {
+  flex: 1;
+}
+
+.faa-upload-info h4 {
+  font-size: 0.925rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.faa-upload-info p {
+  font-size: 0.775rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-bottom: 12px;
+}
+
+.faa-file-input-wrapper {
+  position: relative;
+  overflow: hidden;
+  display: inline-block;
+}
+
+.faa-file-input-wrapper input[type="file"] {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.faa-file-input-wrapper input[type="file"]::file-selector-button {
+  background: #242424;
+  color: var(--text-primary);
+  border: 1px solid #333333;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-right: 10px;
+  transition: all 0.15s;
+}
+
+.faa-file-input-wrapper input[type="file"]::file-selector-button:hover {
+  background: var(--accent-teal);
+  color: #ffffff;
+  border-color: var(--accent-teal);
+}
+
+.faa-file-loaded-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  color: #34d399;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+/* 3. Barra de Execução */
+.faa-action-banner {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 16px 22px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.faa-action-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.faa-action-note svg {
+  color: var(--accent-teal);
+  flex-shrink: 0;
+}
+
+.faa-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* 4. Grid de KPIs Executivos */
+.faa-kpis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.faa-kpi-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.faa-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  border-color: var(--border-card-hover);
+}
+
+.faa-kpi-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.faa-kpi-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.faa-kpi-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.faa-kpi-icon.teal { background: rgba(89, 159, 166, 0.15); color: var(--accent-teal); }
+.faa-kpi-icon.blue { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+.faa-kpi-icon.emerald { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+.faa-kpi-icon.amber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.faa-kpi-icon.rose { background: rgba(244, 63, 94, 0.15); color: #fb7185; }
+
+.faa-kpi-value {
+  font-size: 1.65rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.faa-kpi-value.blue { color: #38bdf8; }
+.faa-kpi-value.emerald { color: #34d399; }
+.faa-kpi-value.amber { color: #fbbf24; }
+.faa-kpi-value.rose { color: #fb7185; }
+
+.faa-kpi-sub {
+  font-size: 0.725rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* 5. Toolbar de Navegação e Exportação */
+.faa-toolbar {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 12px 18px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.faa-tabs-nav {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.faa-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.825rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.faa-tab-btn:hover {
+  background: #1f1f1f;
+  color: var(--text-primary);
+}
+
+.faa-tab-btn.active {
+  background: var(--accent-teal);
+  color: #ffffff;
+  border-color: var(--accent-teal);
+  box-shadow: 0 2px 10px rgba(89, 159, 166, 0.35);
+}
+
+.faa-export-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* 6. Filtros e Pesquisa */
+.faa-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-card);
+  background: #141414;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.faa-search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #1c1c1c;
+  border: 1px solid #2b2b2b;
+  border-radius: var(--radius-md);
+  padding: 7px 14px;
+  width: 320px;
+  max-width: 100%;
+}
+
+.faa-search-box input {
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--font-sans);
+  font-size: 0.825rem;
+  color: var(--text-primary);
+  width: 100%;
+}
+
+.faa-search-box input::placeholder {
+  color: var(--text-muted);
+}
+
+/* 7. Tabelas Formatadas */
+.faa-table-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+  margin-bottom: 24px;
+}
+
+.faa-table-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.faa-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+  text-align: left;
+}
+
+.faa-table thead tr {
+  background: #121212;
+  border-bottom: 2px solid var(--border-card);
+}
+
+.faa-table th {
+  padding: 12px 14px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.faa-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid #202020;
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.faa-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.faa-table tbody tr:hover {
+  background: #1a1a1a;
+}
+
+.faa-table tbody tr.selected {
+  background: rgba(89, 159, 166, 0.08);
+}
+
+/* Tags de Loja e Operação */
+.faa-loja-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.faa-badge-op {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.faa-badge-op.assai {
+  background: rgba(56, 189, 248, 0.14);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.faa-badge-op.atacadao {
+  background: rgba(251, 146, 60, 0.14);
+  color: #fb923c;
+  border: 1px solid rgba(251, 146, 60, 0.35);
+}
+
+.faa-num-cell {
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.faa-num-cell.bold {
+  font-weight: 700;
+}
+
+.faa-num-cell.emerald {
+  color: #34d399;
+  font-weight: 700;
+}
+
+.faa-num-cell.amber {
+  color: #fbbf24;
+  font-weight: 700;
+}
+
+.faa-num-cell.rose {
+  color: #fb7185;
+  font-weight: 700;
+}
+
+.faa-num-cell.blue {
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.faa-num-cell.mono {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+.faa-btn-icon {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.faa-btn-icon:hover {
+  background: #242424;
+  color: var(--accent-teal);
+  border-color: #333333;
+}
+
+/* 8. Modais */
+.faa-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: faaFadeIn 0.2s ease;
+}
+
+.faa-modal-card {
+  background: #141722;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-xl);
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+  padding: 26px;
+}
+
+.faa-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.faa-modal-header h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.faa-form-group {
+  margin-bottom: 16px;
+}
+
+.faa-form-group label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.faa-form-group input,
+.faa-form-group select,
+.faa-form-group textarea {
+  width: 100%;
+  background: #1a1e2e;
+  border: 1px solid #2d3448;
+  border-radius: var(--radius-md);
+  padding: 9px 12px;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.faa-form-group input:focus,
+.faa-form-group select:focus,
+.faa-form-group textarea:focus {
+  border-color: var(--accent-teal);
+  box-shadow: 0 0 0 2px var(--accent-teal-bg);
+}
+
+.faa-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.faa-list-box {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #252a3b;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.faa-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  background: #171b28;
+  border: 1px solid #232838;
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+  font-size: 0.82rem;
+}
+
+.faa-list-item-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.faa-list-item-title {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.faa-list-item-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* Abas internas do Modal de Quadros */
+.faa-modal-tabs {
+  display: flex;
+  gap: 6px;
+  background: #0f121b;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  margin-bottom: 18px;
+  border: 1px solid #1f2537;
+}
+
+.faa-modal-tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.faa-modal-tab-btn:hover {
+  color: var(--text-primary);
+  background: #171c2a;
+}
+
+.faa-modal-tab-btn.active {
+  background: var(--accent-teal);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(89, 159, 166, 0.3);
+}
+
+.faa-textarea-code {
+  font-family: 'JetBrains Mono', 'Consolas', monospace !important;
+  font-size: 0.8rem !important;
+  line-height: 1.5 !important;
+  min-height: 160px;
+  white-space: pre;
+}
+
+.faa-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.faa-checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-teal);
+  cursor: pointer;
+}
+
+.faa-note-box {
+  background: rgba(89, 159, 166, 0.08);
+  border: 1px solid rgba(89, 159, 166, 0.25);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-size: 0.775rem;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.faa-note-box svg {
+  color: var(--accent-teal);
+  flex-shrink: 0;
+  margin-top: 2px;
+}

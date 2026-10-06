@@ -116,7 +116,27 @@ O sistema é estruturado em fluxos operacionais bem definidos e telas ricas no f
 *   **Funcionalidades:** Cruza o custo de pessoal orçado (definido nos escopos) contra o custo real efetivamente pago (importado na folha de pagamento SRD), detalhando desvios de despesas por competência e rubricas.
 *   **Arquivos Relacionados:** [comparativo_loja.py](file:///c:/Users/guilherme.satoru/Desktop/analises-operacionais/lojas/services/comparativo_loja.py) e [Comparativo.tsx](file:///c:/Users/guilherme.satoru/Desktop/analises-operacionais/frontend/src/pages/Comparativo.tsx)
 
-### 9. Administração de Usuários
+### 9. Gestão Operacional de Faltas & Fechamentos
+*   **Finalidade:** Gestão completa de fechamentos mensais de ausências e faltas com apuração financeira, cálculo automatizado de descontos e geração de relatórios oficiais.
+*   **Clientes e Redes Integradas:**
+    -   **Carrefour (Ciclo 20 a 19):** 19 filiais ativas, recebimento de justificativas via WhatsApp, cálculo de descontos por loja e geração de planilha oficial e e-mails por regional.
+    -   **Grupo Protege:** 16 bases operacionais com conferência por posto de trabalho e gerador de e-mails oficial.
+    -   **Assaí & Atacadão (Motor 2.0):** Ingestão direta de batidas da GeoVictoria API, cruzamento determinístico em 4 níveis (presenças, folgas, ocorrências), exportação de planilhas consolidadas e relatórios PDF individuais em pacote ZIP.
+*   **Funcionalidades Especiais:**
+    -   **Leitor Inteligente de WhatsApp (Parser Engine):** Transforma mensagens enviadas por encarregados em dados estruturados de faltas com preenchimento em 1 clique.
+    -   **Tabela de Tarifas:** Parametrização customizável do valor de desconto por falta diária por filial.
+    -   **Histórico de Fechamentos:** Consulta e reabertura de competências anteriores.
+*   **Arquivos Relacionados:** [GestaoFaltas.tsx](file:///c:/Users/aprendiz.operacional/Documents/analises-operacionais/frontend/src/pages/GestaoFaltas.tsx), [gestaoFaltasApi.ts](file:///c:/Users/aprendiz.operacional/Documents/analises-operacionais/frontend/src/services/gestaoFaltasApi.ts) e módulo backend [gestao_faltas/](file:///c:/Users/aprendiz.operacional/Documents/analises-operacionais/gestao_faltas/).
+
+### 10. Faltas Shoppings (Quadro de Presenças)
+*   **Finalidade:** Controle diário por turno do quadro de funcionários em operações de shoppings (ex: Shopping Butantã, Shopping das Nações).
+*   **Funcionalidades:**
+    -   Acompanhamento de presentes, folgas, faltas, atestados, apoio noturno e banheiristas por turno (Manhã e Tarde).
+    -   Cadastro dinâmico e gestão de múltiplos shoppings.
+    -   Exportação em tempo real para planilhas e relatórios operacionais.
+*   **Arquivos Relacionados:** [ButantaPage.tsx](file:///c:/Users/aprendiz.operacional/Documents/analises-operacionais/frontend/src/pages/ButantaPage.tsx), [views_butanta.py](file:///c:/Users/aprendiz.operacional/Documents/analises-operacionais/gestao_faltas/views_butanta.py) e camada de persistência [database.py](file:///c:/Users/aprendiz.operacional/Documents/analises-operacionais/gestao_faltas/butanta/database.py).
+
+### 11. Administração de Usuários
 *   **Finalidade:** Cadastro e controle de permissões de acesso ao sistema.
 *   **Funcionalidades:**
     - Permite que usuários do perfil `Administrador` gerenciem os acessos de analistas (`Consulta` e `Gestão`).

@@ -72,11 +72,11 @@ node_modules/
 dist/
 dist-ssr/
 
-# Pastas e bancos importados (Gestão de Faltas & BUTtan)
-gestaoFaltas/
-gestaofaltas/
-BUTtan/
-buttan/
+# Pastas e bancos importados (Gestão de Faltas & BUTtan na raiz)
+/gestaoFaltas/
+/gestaofaltas/
+/BUTtan/
+/buttan/
 quadro_presencas.db
 *.db
 *.sqlite

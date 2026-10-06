@@ -68,7 +68,7 @@ def init_db() -> None:
         # Garantir ao menos um shopping inicial caso a tabela esteja vazia
         cursor.execute("SELECT COUNT(*) FROM shoppings")
         if cursor.fetchone()[0] == 0:
-            cursor.execute("INSERT INTO shoppings (nome) VALUES (?)", ("Shopping Butantã",))
+            cursor.execute("INSERT INTO shoppings (nome, created_at) VALUES (?, datetime('now', 'localtime'))", ("Shopping Butantã",))
 
         # 2. Tabela principal de registros
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='quadro_registros'")
@@ -259,7 +259,7 @@ def add_shopping(nome: str) -> Dict[str, Any]:
         if existing:
             raise ValueError(f"O shopping '{existing['nome']}' já está cadastrado.")
 
-        cursor.execute("INSERT INTO shoppings (nome) VALUES (?)", (clean_nome,))
+        cursor.execute("INSERT INTO shoppings (nome, created_at) VALUES (?, datetime('now', 'localtime'))", (clean_nome,))
         conn.commit()
         return {"id": cursor.lastrowid, "nome": clean_nome}
 

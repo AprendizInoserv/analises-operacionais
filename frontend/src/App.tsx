@@ -28,6 +28,8 @@ const Headcount = lazy(() => import('./pages/Headcount'));
 const Salarios = lazy(() => import('./pages/Salarios'));
 const TestesPromocao = lazy(() => import('./pages/TestesPromocao'));
 const Ausencias = lazy(() => import('./pages/Ausencias'));
+const GestaoFaltas = lazy(() => import('./pages/GestaoFaltas'));
+const ButantaPage = lazy(() => import('./pages/ButantaPage'));
 
 
 /**
@@ -240,6 +242,26 @@ function App() {
               element={
                 permissions.salarios?.view ? (
                   <Salarios />
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              } 
+            />
+            <Route 
+              path="/faltas" 
+              element={
+                (permissions.faltas?.view ?? true) ? (
+                  <GestaoFaltas />
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              } 
+            />
+            <Route 
+              path="/butanta" 
+              element={
+                (permissions.butanta?.view ?? true) ? (
+                  <ButantaPage />
                 ) : (
                   <Navigate to="/" replace />
                 )

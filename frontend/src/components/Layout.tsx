@@ -78,6 +78,12 @@ export default function Layout({ isAuthenticated, username, email, onLogout, rol
   } else if (path === 'premios') {
     sector = 'Análises';
     pageName = 'Prêmios';
+  } else if (path === 'faltas') {
+    sector = 'Gestão de Faltas';
+    pageName = 'Painel de Faltas';
+  } else if (path === 'butanta') {
+    sector = 'Faltas Shoppings';
+    pageName = 'Faltas Shoppings';
   } else if (path === 'importacoes') {
     sector = 'Configurações';
     pageName = 'Importações';

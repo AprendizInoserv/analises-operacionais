@@ -16,7 +16,12 @@ import {
   CalendarCheck,
   CalendarX,
   Coins,
-  CircleDollarSign
+  CircleDollarSign,
+  FileSpreadsheet,
+  Building2,
+  ShieldCheck,
+  History,
+  Sliders
 } from 'lucide-react';
 import { logoBase64 } from '../assets/logoBase64';
 import { 
@@ -381,6 +386,117 @@ export default function Sidebar({ username = 'Usuário', email = '', onLogout, p
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Setor Gestão de Faltas */}
+        {(permissions?.faltas?.view ?? true) && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Gestão de Faltas</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={location.pathname === '/faltas' && !location.search}
+                    title={!open ? "Painel de Faltas" : undefined}
+                  >
+                    <Link to="/faltas">
+                      <FileSpreadsheet className="h-5 w-5 shrink-0" />
+                      {open && <span className="truncate">Painel Geral</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={location.pathname === '/faltas' && location.search.includes('client=carrefour')}
+                    title={!open ? "Carrefour" : undefined}
+                  >
+                    <Link to="/faltas?client=carrefour">
+                      <Building2 className="h-5 w-5 shrink-0 text-blue-400" />
+                      {open && <span className="truncate">Carrefour</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={location.pathname === '/faltas' && location.search.includes('client=protege')}
+                    title={!open ? "Protege" : undefined}
+                  >
+                    <Link to="/faltas?client=protege">
+                      <ShieldCheck className="h-5 w-5 shrink-0 text-amber-400" />
+                      {open && <span className="truncate">Protege</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={location.pathname === '/faltas' && location.search.includes('client=assai_atacadao')}
+                    title={!open ? "Assaí & Atacadão" : undefined}
+                  >
+                    <Link to="/faltas?client=assai_atacadao">
+                      <Store className="h-5 w-5 shrink-0 text-teal-400" />
+                      {open && <span className="truncate">Assaí & Atacadão</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={location.pathname === '/faltas' && location.search.includes('view=tarifas')}
+                    title={!open ? "Lojas & Tarifas" : undefined}
+                  >
+                    <Link to="/faltas?view=tarifas">
+                      <Sliders className="h-5 w-5 shrink-0" />
+                      {open && <span className="truncate">Lojas & Tarifas</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={location.pathname === '/faltas' && location.search.includes('view=historico_banco')}
+                    title={!open ? "Histórico de Fechamentos" : undefined}
+                  >
+                    <Link to="/faltas?view=historico_banco">
+                      <History className="h-5 w-5 shrink-0" />
+                      {open && <span className="truncate">Histórico</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Setor Faltas Shoppings */}
+        {(permissions?.butanta?.view ?? true) && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Faltas Shoppings</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={location.pathname === '/butanta'}
+                    title={!open ? "Faltas Shoppings" : undefined}
+                  >
+                    <Link to="/butanta">
+                      <Store className="h-5 w-5 shrink-0 text-cyan-400" />
+                      {open && <span className="truncate">Faltas Shoppings</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Setor Configurações */}
         <SidebarGroup>

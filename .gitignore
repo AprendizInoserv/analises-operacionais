@@ -67,3 +67,16 @@ lojas/fixtures/de_para_verbas.json
 scratch/
 
 
+# Frontend / Node
+node_modules/
+dist/
+dist-ssr/
+
+# Pastas e bancos importados (Gestão de Faltas & BUTtan)
+gestaoFaltas/
+gestaofaltas/
+BUTtan/
+buttan/
+quadro_presencas.db
+*.db
+*.sqlite

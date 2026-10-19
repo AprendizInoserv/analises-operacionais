@@ -44,8 +44,9 @@ export default function FechamentoProtege({
   fechamentoAtivo, 
   setFechamentoAtivo 
 }) {
-  const [mes, setMes] = useState(8); // Agosto por padrão
-  const [ano, setAno] = useState(2026);
+  const hoje = new Date();
+  const [mes, setMes] = useState(() => hoje.getMonth() + 1);
+  const [ano, setAno] = useState(() => hoje.getFullYear());
   const [itens, setItens] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -249,19 +250,16 @@ export default function FechamentoProtege({
                 <select
                   value={mes}
                   onChange={(e) => setMes(parseInt(e.target.value))}
+                  className="select-custom"
                   style={{
-                    fontSize: '1.15rem',
+                    fontSize: '1.1rem',
                     fontWeight: '700',
-                    background: 'rgba(255,255,255,0.06)',
-                    color: 'var(--text-primary)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '8px',
                     padding: '6px 12px',
                     cursor: 'pointer'
                   }}
                 >
                   {MESES.map(m => (
-                    <option key={m.val} value={m.val} style={{ background: '#1e293b' }}>
+                    <option key={m.val} value={m.val}>
                       {m.nome}
                     </option>
                   ))}
@@ -270,19 +268,22 @@ export default function FechamentoProtege({
                 <select
                   value={ano}
                   onChange={(e) => setAno(parseInt(e.target.value))}
+                  className="select-custom"
                   style={{
-                    fontSize: '1.15rem',
+                    fontSize: '1.1rem',
                     fontWeight: '700',
-                    background: 'rgba(255,255,255,0.06)',
-                    color: 'var(--text-primary)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '8px',
                     padding: '6px 12px',
                     cursor: 'pointer'
                   }}
                 >
-                  <option value={2026} style={{ background: '#1e293b' }}>2026</option>
-                  <option value={2025} style={{ background: '#1e293b' }}>2025</option>
+                  {Array.from({ length: 5 }, (_, idx) => {
+                    const a = (new Date().getFullYear() - 2) + idx;
+                    return (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 

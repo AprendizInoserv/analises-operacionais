@@ -34,6 +34,10 @@ class RegiaoSerializer(serializers.ModelSerializer):
 class LojaSerializer(serializers.ModelSerializer):
     regiao_nome = serializers.CharField(source='regiao.nome', read_only=True)
     cliente_nome = serializers.CharField(source='cliente.nome', read_only=True)
+    loja_base_nome = serializers.CharField(source='loja_base.nome_referencia', read_only=True)
+    loja_base_status = serializers.CharField(source='loja_base.status', read_only=True)
+    coordenador_oficial = serializers.CharField(source='loja_base.coordenador.nome', read_only=True)
+    supervisor_oficial = serializers.CharField(source='loja_base.supervisor.nome', read_only=True)
 
     class Meta:
         model = LojaTarifa
@@ -41,7 +45,9 @@ class LojaSerializer(serializers.ModelSerializer):
             'id', 'cliente', 'cliente_nome', 'regiao', 'regiao_nome',
             'nome', 'codigo_filial', 'sigla', 'centro', 'formato',
             'endereco', 'supervisor', 'telefone', 'email_contatos',
-            'desconto_por_falta', 'ativo', 'ordem'
+            'desconto_por_falta', 'ativo', 'ordem', 'loja_base',
+            'loja_base_nome', 'loja_base_status', 'coordenacao',
+            'coordenador_oficial', 'supervisor_oficial'
         ]
 
 

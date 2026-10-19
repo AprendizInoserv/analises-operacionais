@@ -1,6 +1,8 @@
 from datetime import date, timedelta, datetime
 import os
 import mimetypes
+from io import BytesIO
+import pandas as pd
 
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404
@@ -112,6 +114,279 @@ def testes_list(request):
 
     serializer = TestePromocaoSerializer(testes_qs, many=True)
     return Response(serializer.data)
+
+
+def _obter_info_folhas(data_inicio):
+    """
+    Calcula as folhas de pagamento (período de 20 a 19) correspondentes aos 4 meses de teste.
+    """
+    if not data_inicio:
+        return []
+    ano = data_inicio.year
+    mes = data_inicio.month
+    dia = data_inicio.day
+
+    if dia >= 20:
+        mes += 1
+        if mes > 12:
+            mes = 1
+            ano += 1
+
+    folhas = []
+    for i in range(4):
+        m = mes + i
+        y = ano
+        while m > 12:
+            m -= 12
+            y += 1
+        folhas.append({"mes_ref": i + 1, "nome_folha": f"{m:02d}/{y}"})
+    return folhas
+
+
+def _obter_folha_calendario_real(hoje=None):
+    if hoje is None:
+        hoje = date.today()
+    dia = hoje.day
+    mes = hoje.month
+    ano = hoje.year
+    if dia >= 20:
+        mes += 1
+        if mes > 12:
+            mes = 1
+            ano += 1
+    return f"{mes:02d}/{ano}"
+
+
+def _converter_folha_para_numero(folha_str):
+    if not folha_str or "/" not in folha_str:
+        return 0
+    try:
+        m, y = map(int, folha_str.split("/"))
+        return y * 12 + m
+    except Exception:
+        return 0
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, IsGestaoOrAdministrador])
+def testes_exportar_excel(request):
+    """
+    Exporta a listagem de testes de promoção respeitando os filtros aplicados para um arquivo Excel (.xlsx).
+    """
+    testes_qs = (
+        TestePromocao.objects
+        .select_related(
+            "colaborador",
+            "colaborador__loja",
+            "colaborador__loja__supervisor",
+            "colaborador__loja__coordenador",
+        )
+        .prefetch_related("historico_acoes")
+        .all()
+    )
+
+    ids_param = request.GET.get("ids", "").strip()
+    if ids_param:
+        ids_list = [i.strip() for i in ids_param.split(",") if i.strip().isdigit()]
+        if ids_list:
+            testes_qs = testes_qs.filter(id__in=ids_list)
+
+    search_query = request.GET.get("search", "").strip()
+    status_query = request.GET.get("status", "").strip()
+    supervisor_query = request.GET.get("supervisor", "").strip()
+    cobranca_query = request.GET.get("cobranca", "").strip()
+    etapa_query = request.GET.get("etapa", "").strip()
+    acao_query = request.GET.get("acao", "").strip() or request.GET.get("acao_pendente", "").strip()
+    folha_query = request.GET.get("folha", "").strip()
+
+    if search_query:
+        testes_qs = testes_qs.filter(
+            Q(colaborador__nome__icontains=search_query) | Q(colaborador__re__icontains=search_query)
+        )
+
+    if status_query:
+        testes_qs = testes_qs.filter(status=status_query)
+
+    if supervisor_query:
+        testes_qs = testes_qs.filter(colaborador__loja__supervisor__nome=supervisor_query)
+
+    testes_qs = testes_qs.order_by("-created_at")
+
+    hoje = date.today()
+    num_folha_hoje = _converter_folha_para_numero(_obter_folha_calendario_real(hoje))
+
+    linhas_excel = []
+
+    for teste in testes_qs:
+        acoes = list(teste.historico_acoes.all())
+        premios = [a for a in acoes if a.acao in ["pagar_premio", "pagar_premio_cancelar"]]
+        mes_atual_num = 1 if teste.status == "pendente" else len(premios) + 1
+        folhas = _obter_info_folhas(teste.data_inicio)
+        folha_teste = next((f for f in folhas if f["mes_ref"] == mes_atual_num), None)
+        nome_folha = folha_teste["nome_folha"] if (folha_teste and teste.status not in ["promovido", "cancelado"]) else "-"
+
+        acao_resposta = next((a for a in acoes if a.acao == "registrar_resposta" and a.mes_referencia == mes_atual_num), None)
+        ja_respondeu = acao_resposta is not None
+        num_folha_teste = _converter_folha_para_numero(folha_teste["nome_folha"]) if folha_teste else 0
+        falta_resposta = (num_folha_teste <= num_folha_hoje) and not ja_respondeu
+
+        # Filtros de aplicação em memória
+        if cobranca_query and cobranca_query != "todos":
+            if teste.status != "ativo":
+                continue
+            if cobranca_query == "falta_resposta" and not falta_resposta:
+                continue
+            if cobranca_query == "em_dia" and falta_resposta:
+                continue
+
+        if etapa_query:
+            if teste.status != "ativo":
+                continue
+            if etapa_query == "aguardando_resposta" and ja_respondeu:
+                continue
+            if etapa_query == "aguardando_acao" and not ja_respondeu:
+                continue
+
+        if acao_query:
+            if teste.status != "ativo" or not acao_resposta:
+                continue
+            resp = acao_resposta.resposta_supervisor
+            if acao_query == "pagar_premio":
+                if resp not in ["pagar_premio", "pagar_premio_cancelar"]:
+                    continue
+            elif acao_query == "cancelar":
+                if resp not in ["cancelar", "pagar_premio_cancelar"]:
+                    continue
+            elif resp != acao_query:
+                continue
+
+        if folha_query:
+            if nome_folha != folha_query:
+                continue
+
+        # Montagem dos campos para a planilha
+        colab = teste.colaborador
+        loja_nome = colab.loja.nome_referencia if colab.loja else (colab.centro_custo or "-")
+        supervisor_nome = colab.loja.supervisor.nome if (colab.loja and colab.loja.supervisor) else "-"
+        coordenador_nome = colab.loja.coordenador.nome if (colab.loja and colab.loja.coordenador) else "-"
+        data_ini_str = teste.data_inicio.strftime("%d/%m/%Y") if teste.data_inicio else "-"
+
+        if teste.status in ["promovido", "cancelado"]:
+            ciclo_str = "Finalizado"
+        elif teste.status == "pendente":
+            ciclo_str = "Aguardando Ativação"
+        else:
+            ciclo_str = f"Mês {mes_atual_num}"
+
+        if teste.status == "ativo":
+            if falta_resposta:
+                situacao_cobranca = "Falta Resposta"
+            elif ja_respondeu:
+                situacao_cobranca = "Aguardando Ação"
+            else:
+                situacao_cobranca = "Em Dia"
+        elif teste.status == "pendente":
+            situacao_cobranca = "Pendente de Aprovação"
+        else:
+            situacao_cobranca = "Finalizado"
+
+        resp_map = {
+            "pagar_premio": "Pagar Prêmio",
+            "promover": "Promover",
+            "cancelar": "Cancelar",
+            "pagar_premio_cancelar": "Pagar Prêmio e Cancelar",
+        }
+        resposta_sup_str = "-"
+        if acao_resposta and acao_resposta.resposta_supervisor:
+            resposta_sup_str = resp_map.get(acao_resposta.resposta_supervisor, acao_resposta.resposta_supervisor)
+
+        ultima_obs = ""
+        if acoes:
+            acoes_ordenadas = sorted(acoes, key=lambda a: a.created_at, reverse=True)
+            for a in acoes_ordenadas:
+                if a.observacao:
+                    ultima_obs = a.observacao
+                    break
+
+        linhas_excel.append({
+            "RE": colab.re,
+            "Colaborador": colab.nome,
+            "Cargo Atual": colab.cargo or "-",
+            "Cargo em Teste": teste.cargo_teste or "-",
+            "Loja": loja_nome,
+            "Supervisor": supervisor_nome,
+            "Coordenador": coordenador_nome,
+            "Data Início": data_ini_str,
+            "Ciclo / Mês": ciclo_str,
+            "Status": teste.get_status_display(),
+            "Cobrança": situacao_cobranca,
+            "Resposta Supervisor": resposta_sup_str,
+            "Folha do Teste": nome_folha,
+            "Última Observação": ultima_obs or "-",
+            "Criado Por": teste.criado_por or "-",
+            "Data Cadastro": teste.created_at.strftime("%d/%m/%Y %H:%M") if teste.created_at else "-",
+        })
+
+    colunas = [
+        "RE",
+        "Colaborador",
+        "Cargo Atual",
+        "Cargo em Teste",
+        "Loja",
+        "Supervisor",
+        "Coordenador",
+        "Data Início",
+        "Ciclo / Mês",
+        "Status",
+        "Cobrança",
+        "Resposta Supervisor",
+        "Folha do Teste",
+        "Última Observação",
+        "Criado Por",
+        "Data Cadastro",
+    ]
+
+    df = pd.DataFrame(linhas_excel, columns=colunas)
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Testes de Promoção")
+        worksheet = writer.sheets["Testes de Promoção"]
+
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+        header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+        center_align = Alignment(horizontal="center", vertical="center")
+        thin_border = Border(
+            left=Side(style="thin", color="CBD5E1"),
+            right=Side(style="thin", color="CBD5E1"),
+            top=Side(style="thin", color="CBD5E1"),
+            bottom=Side(style="thin", color="CBD5E1"),
+        )
+
+        for cell in worksheet[1]:
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = center_align
+
+        for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, min_col=1, max_col=worksheet.max_column):
+            for cell in row:
+                cell.border = thin_border
+
+        for col in worksheet.columns:
+            max_len = max(len(str(cell.value or "")) for cell in col)
+            col_letter = col[0].column_letter
+            worksheet.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+    buffer.seek(0)
+    data_hoje = hoje.strftime("%d_%m_%Y")
+    filename = f"testes_promocao_{data_hoje}.xlsx"
+
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
 
 
 @api_view(["GET"])

@@ -13,7 +13,9 @@ import {
   ChevronLeft, 
   ChevronRight, 
   UserCheck,
-  CalendarDays
+  CalendarDays,
+  Download,
+  FileSpreadsheet
 } from 'lucide-react';
 import api, { getBackendPort } from '../api/client';
 import { toast } from 'sonner';
@@ -70,6 +72,7 @@ export default function TestesPromocao() {
   const [testes, setTestes] = useState<TestePromocaoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Filtros
   const [busca, setBusca] = useState('');
@@ -166,6 +169,58 @@ export default function TestesPromocao() {
     setFolhaFiltro('');
     setFolhaFiltroAplicado('');
     setCurrentPage(1);
+  };
+
+  // Exportar testes de promoção filtrados para Excel (.xlsx)
+  const handleExportarExcel = async () => {
+    try {
+      setIsExporting(true);
+      const params = new URLSearchParams();
+      if (buscaAplicada) params.append('search', buscaAplicada);
+      if (statusFiltroAplicado) params.append('status', statusFiltroAplicado);
+      if (cobrancaFiltroAplicado !== 'todos') params.append('cobranca', cobrancaFiltroAplicado);
+      if (supervisorFiltroAplicado) params.append('supervisor', supervisorFiltroAplicado);
+      if (etapaFiltroAplicado) params.append('etapa', etapaFiltroAplicado);
+      if (acaoPendenteFiltroAplicado) params.append('acao', acaoPendenteFiltroAplicado);
+      if (folhaFiltroAplicado) params.append('folha', folhaFiltroAplicado);
+
+      // Envia os IDs filtrados para garantir correspondência exata com o cliente
+      if (testesFiltrados.length > 0 && testesFiltrados.length < testes.length) {
+        params.append('ids', testesFiltrados.map((t) => t.id).join(','));
+      }
+
+      const response = await api.get(`/colaboradores/testes/exportar/?${params.toString()}`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      const dataHoje = new Date().toISOString().slice(0, 10);
+      link.setAttribute('download', `testes_promocao_${dataHoje}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+      toast.success('Planilha de testes exportada com sucesso!');
+    } catch (err) {
+      console.error('Erro ao exportar testes para Excel:', err);
+      // Fallback via URL direta caso o blob falhe
+      const params = new URLSearchParams();
+      if (buscaAplicada) params.append('search', buscaAplicada);
+      if (statusFiltroAplicado) params.append('status', statusFiltroAplicado);
+      if (cobrancaFiltroAplicado !== 'todos') params.append('cobranca', cobrancaFiltroAplicado);
+      if (supervisorFiltroAplicado) params.append('supervisor', supervisorFiltroAplicado);
+      if (etapaFiltroAplicado) params.append('etapa', etapaFiltroAplicado);
+      if (acaoPendenteFiltroAplicado) params.append('acao', acaoPendenteFiltroAplicado);
+      if (folhaFiltroAplicado) params.append('folha', folhaFiltroAplicado);
+      const fallbackUrl = `http://${window.location.hostname}:${getBackendPort()}/colaboradores/testes/exportar/?${params.toString()}`;
+      window.open(fallbackUrl, '_blank');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleOpenAcao = (teste: TestePromocaoItem) => {
@@ -402,13 +457,25 @@ export default function TestesPromocao() {
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-50">Controle de Testes de Promoção</h1>
           <p className="text-sm text-neutral-500">Gestão mensal e ciclos operacionais de promoção de equipe</p>
         </div>
-        <button
-          onClick={() => setShowNovoModal(true)}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-full text-xs font-bold hover:bg-neutral-850 dark:hover:bg-neutral-100 shadow-xs transition-all shadow-sm cursor-pointer"
-        >
-          <Plus className="h-4 w-4" />
-          Nova Solicitação
-        </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={handleExportarExcel}
+            disabled={loading || isExporting || testesFiltrados.length === 0}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 border border-neutral-200 dark:border-neutral-850 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-full text-xs font-bold text-neutral-800 dark:text-white transition-all shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Exportar testes filtrados para planilha Excel (.xlsx)"
+          >
+            {isExporting ? <Loader2 className="h-4 w-4 animate-spin text-neutral-500" /> : <Download className="h-4 w-4 text-neutral-500" />}
+            {isExporting ? 'Exportando...' : 'Exportar Planilha'}
+          </button>
+          <button
+            onClick={() => setShowNovoModal(true)}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-full text-xs font-bold hover:bg-neutral-850 dark:hover:bg-neutral-100 shadow-xs transition-all shadow-sm cursor-pointer"
+          >
+            <Plus className="h-4 w-4" />
+            Nova Solicitação
+          </button>
+        </div>
       </div>
 
       {/* Painel de Filtros */}
@@ -539,6 +606,31 @@ export default function TestesPromocao() {
 
       {/* Tabela de Dados */}
       <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden shadow-xs">
+        <div className="p-4 sm:p-5 border-b border-neutral-100 dark:border-neutral-850 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="font-bold text-sm text-neutral-900 dark:text-neutral-50 flex items-center gap-2">
+              <FileSpreadsheet className="h-4 w-4 text-primary" />
+              Listagem de Testes de Promoção
+            </h3>
+            <p className="text-xs text-neutral-500 mt-0.5">
+              Total nesta seleção: <span className="font-bold text-neutral-900 dark:text-neutral-100">{testesFiltrados.length}</span> {testesFiltrados.length === 1 ? 'teste' : 'testes'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleExportarExcel}
+            disabled={loading || testesFiltrados.length === 0 || isExporting}
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-2 border border-emerald-600/30 dark:border-emerald-500/30 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed self-start sm:self-auto"
+            title="Exportar testes filtrados para Excel (.xlsx)"
+          >
+            {isExporting ? (
+              <Loader2 className="h-4 w-4 animate-spin text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            )}
+            <span>{isExporting ? 'Exportando...' : 'Exportar para Excel'}</span>
+          </button>
+        </div>
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3 text-neutral-500">
             <Loader2 className="h-8 w-8 animate-spin text-neutral-950 dark:text-white" />

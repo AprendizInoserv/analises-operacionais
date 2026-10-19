@@ -69,6 +69,20 @@ class LojaTarifa(models.Model):
     )
     ativo = models.BooleanField(default=True)
     ordem = models.PositiveIntegerField(default=0)
+    loja_base = models.ForeignKey(
+        'lojas.Loja',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tarifas_fechamento',
+        verbose_name='Loja Base Oficial'
+    )
+    coordenacao = models.CharField(
+        max_length=150,
+        blank=True,
+        null=True,
+        verbose_name='Coordenação'
+    )
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
@@ -214,6 +228,14 @@ class QuadroLoja(models.Model):
     vigencia_inicio = models.DateField(null=True, blank=True, help_text="Início da vigência do quadro")
     vigencia_fim = models.DateField(null=True, blank=True, help_text="Fim da vigência (ou vazio para ativo)")
     ativo = models.BooleanField(default=True)
+    loja_base = models.ForeignKey(
+        'lojas.Loja',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='quadros_fechamento',
+        verbose_name='Loja Base Oficial'
+    )
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 

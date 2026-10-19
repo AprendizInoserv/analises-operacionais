@@ -420,6 +420,16 @@ def export_store_pdf(
     daily_table.setStyle(TableStyle(t_style))
     story.append(daily_table)
 
+    # Observação explicativa de Abono Assaí se aplicável
+    atestados_ab = int(store_summary.get('atestados_abonados', 0))
+    if operacao == 'ASSAI' and atestados_ab > 0:
+        story.append(Spacer(1, 4))
+        obs_text = (
+            f"<font color='#0369a1'><b>Nota de Auditoria (Regra Comercial Assaí):</b> Foram aplicados {atestados_ab} abono(s) de atestado médico "
+            f"contabilizados na coluna 'Presença' e 'Resultado', conforme regra de 1 abono de atestado/mês por colaborador.</font>"
+        )
+        story.append(Paragraph(obs_text, ParagraphStyle('AssaiObs', fontName='Helvetica-Oblique', fontSize=6.5, leading=8)))
+
     # Constrói o PDF usando o NumberedCanvas para rodapé dinâmico
     doc.build(story, canvasmaker=NumberedCanvas)
 

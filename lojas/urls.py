@@ -74,6 +74,7 @@ urlpatterns = [
     # ========== CALENDÁRIO DE PRESENÇAS GEOVICTORIA ==========
     path("lojas/api/presencas/calendario/<int:loja_id>/", views.loja_presencas_calendario_api, name="loja_presencas_calendario"),
     path("lojas/api/presencas/dia/<int:loja_id>/", views.loja_presencas_dia_api, name="loja_presencas_dia"),
+    path("lojas/api/presencas/exportar/<int:loja_id>/", views.loja_presencas_exportar_excel_api, name="loja_presencas_exportar_excel"),
     path("lojas/api/presencas/sincronizar-geral/", views.lojas_presencas_sincronizar_geral_api, name="lojas_presencas_sincronizar_geral"),
     path("lojas/api/presencas/sincronizar-loja/<int:loja_id>/", views.loja_presencas_sincronizar_individual_api, name="loja_presencas_sincronizar_loja"),
     path("lojas/api/presencas/sincronizar-progresso/", views.loja_presencas_sincronizar_progresso_api, name="lojas_presencas_sincronizar_progresso"),

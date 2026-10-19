@@ -54,8 +54,40 @@ export const gestaoFaltasApi = {
   },
 
   // Lojas & Tarifas
-  async getLojas() {
-    const res = await api.get('/api/faltas/lojas/lojas/');
+  async getLojas(params?: any) {
+    const res = await api.get('/api/faltas/lojas/lojas/', { params });
+    return res.data;
+  },
+
+  async getCandidatasBaseOficial(params?: any) {
+    const res = await api.get('/api/faltas/lojas/lojas/candidatas-base/', { params });
+    return res.data;
+  },
+
+  async adicionarLojaDaBase(data: {
+    loja_base_id: number | string;
+    cliente_codigo?: string;
+    cliente_id?: number | string;
+    desconto_por_falta?: number | string;
+    regiao_id?: number | string;
+    reativar?: boolean;
+  }) {
+    const res = await api.post('/api/faltas/lojas/lojas/adicionar-da-base/', data);
+    return res.data;
+  },
+
+  async toggleLojaAtivo(id: number | string) {
+    const res = await api.post(`/api/faltas/lojas/lojas/${id}/toggle-ativo/`);
+    return res.data;
+  },
+
+  async inativarLoja(id: number | string) {
+    const res = await api.post(`/api/faltas/lojas/lojas/${id}/inativar/`);
+    return res.data;
+  },
+
+  async ativarLoja(id: number | string) {
+    const res = await api.post(`/api/faltas/lojas/lojas/${id}/ativar/`);
     return res.data;
   },
 
@@ -237,8 +269,12 @@ export const gestaoFaltasApi = {
     return res.data;
   },
 
-  async getUltimoFechamentoAtacadaoAssai() {
-    const res = await api.get('/api/fechamento-atacadao-assai/ultimo/');
+  async getUltimoFechamentoAtacadaoAssai(mes?: number, ano?: number) {
+    const params = new URLSearchParams();
+    if (mes) params.append('mes', mes.toString());
+    if (ano) params.append('ano', ano.toString());
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const res = await api.get(`/api/fechamento-atacadao-assai/ultimo/${query}`);
     return res.data;
   },
 
@@ -247,16 +283,28 @@ export const gestaoFaltasApi = {
     return res.data;
   },
 
-  getDownloadAtacadaoAssaiExcelUrl() {
-    return `${getBaseApiUrl()}/api/fechamento-atacadao-assai/exportar-excel/`;
+  getDownloadAtacadaoAssaiExcelUrl(mes?: number, ano?: number) {
+    const params = new URLSearchParams();
+    if (mes) params.append('mes', mes.toString());
+    if (ano) params.append('ano', ano.toString());
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return `${getBaseApiUrl()}/api/fechamento-atacadao-assai/exportar-excel/${query}`;
   },
 
-  getDownloadAtacadaoAssaiZipUrl() {
-    return `${getBaseApiUrl()}/api/fechamento-atacadao-assai/exportar-zip/`;
+  getDownloadAtacadaoAssaiZipUrl(mes?: number, ano?: number) {
+    const params = new URLSearchParams();
+    if (mes) params.append('mes', mes.toString());
+    if (ano) params.append('ano', ano.toString());
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return `${getBaseApiUrl()}/api/fechamento-atacadao-assai/exportar-zip/${query}`;
   },
 
-  getDownloadLojaPdfUrl(loja: string) {
-    return `${getBaseApiUrl()}/api/fechamento-atacadao-assai/exportar-loja-pdf/?loja=${encodeURIComponent(loja)}`;
+  getDownloadLojaPdfUrl(loja: string, mes?: number, ano?: number) {
+    const params = new URLSearchParams();
+    params.append('loja', loja);
+    if (mes) params.append('mes', mes.toString());
+    if (ano) params.append('ano', ano.toString());
+    return `${getBaseApiUrl()}/api/fechamento-atacadao-assai/exportar-loja-pdf/?${params.toString()}`;
   },
 
   async getQuadrosAtacadaoAssai() {
@@ -264,7 +312,7 @@ export const gestaoFaltasApi = {
     return res.data;
   },
 
-  async salvarQuadroAtacadaoAssai(quadroData: any) {
+  async salvarQuadroAtacadaoAssai(quadroData: Record<string, unknown>) {
     if (quadroData.id) {
       const res = await api.put(`/api/fechamento-atacadao-assai/quadros/${quadroData.id}/`, quadroData);
       return res.data;
@@ -292,7 +340,7 @@ export const gestaoFaltasApi = {
     return res.data;
   },
 
-  async salvarDiariaAtacadaoAssai(diariaData: any) {
+  async salvarDiariaAtacadaoAssai(diariaData: Record<string, unknown>) {
     if (diariaData.id) {
       const res = await api.put(`/api/fechamento-atacadao-assai/diarias/${diariaData.id}/`, diariaData);
       return res.data;
@@ -302,7 +350,7 @@ export const gestaoFaltasApi = {
     }
   },
 
-  async criarDiariaAtacadaoAssai(diariaData: any) {
+  async criarDiariaAtacadaoAssai(diariaData: Record<string, unknown>) {
     return this.salvarDiariaAtacadaoAssai(diariaData);
   },
 

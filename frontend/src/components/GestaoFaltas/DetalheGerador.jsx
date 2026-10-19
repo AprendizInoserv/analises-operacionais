@@ -380,8 +380,8 @@ export default function DetalheGerador({ fechamentoAtivo, showToast }) {
 
       {/* Caixa de Explicação Didática da Regra do PDF */}
       <div style={{ 
-        background: 'rgba(23, 23, 23, 0.8)', 
-        border: '1px solid rgba(89, 159, 166, 0.2)', 
+        background: 'var(--bg-card-hover)', 
+        border: '1px solid var(--border-card)', 
         borderRadius: '8px', 
         padding: '12px 18px',
         display: 'flex',
@@ -407,7 +407,7 @@ export default function DetalheGerador({ fechamentoAtivo, showToast }) {
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
-          background: 'rgba(23, 23, 23, 0.5)'
+          background: 'var(--bg-card-hover)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <FileSpreadsheet size={18} style={{ color: 'var(--accent-teal)' }} />
@@ -446,7 +446,7 @@ export default function DetalheGerador({ fechamentoAtivo, showToast }) {
         {/* Tabela */}
         <div style={{ overflowX: 'auto', maxHeight: '560px' }}>
           <table className="custom-table" style={{ width: '100%', fontSize: '0.825rem' }}>
-            <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#121212' }}>
+            <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg-card-hover)' }}>
               <tr>
                 <th style={{ width: '50px', textAlign: 'center' }}>#</th>
                 <th>Nome da Loja (E)</th>
@@ -502,11 +502,11 @@ export default function DetalheGerador({ fechamentoAtivo, showToast }) {
                       <td style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>{row.centro}</td>
                       <td style={{ color: 'var(--text-secondary)' }}>{row.regional}</td>
                       <td style={{ textAlign: 'center' }}>
-                        <span style={{ fontSize: '0.725rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)' }}>
+                        <span style={{ fontSize: '0.725rem', padding: '2px 6px', borderRadius: '4px', background: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
                           {row.formato}
                         </span>
                       </td>
-                      <td style={{ fontWeight: '600', color: '#e2e8f0' }}>{row.colaborador_nome}</td>
+                      <td style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{row.colaborador_nome}</td>
                       <td style={{ textAlign: 'center', color: 'var(--text-muted)' }}>{row.turno || '1º'}</td>
                       
                       {/* CÉLULA DA COLUNA M COM DESTAQUE VISUAL */}
@@ -655,8 +655,8 @@ export default function DetalheGerador({ fechamentoAtivo, showToast }) {
                         alignItems: 'center', 
                         justifyContent: 'space-between', 
                         padding: '10px 14px', 
-                        background: 'rgba(255, 255, 255, 0.03)', 
-                        border: '1px solid var(--border-color)', 
+                        background: 'var(--bg-card-hover)', 
+                        border: '1px solid var(--border-card)', 
                         borderRadius: '6px' 
                       }}
                     >

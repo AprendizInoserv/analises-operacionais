@@ -69,13 +69,14 @@ export default function GestaoFaltas() {
     if (clientParam) {
       setSelectedClient(clientParam);
       setActiveView('client_hub');
-    } else {
+    } else if (viewParam && viewParam !== 'home') {
       setSelectedClient(null);
-      if (viewParam && viewParam !== 'home') {
-        setActiveView(viewParam);
-      } else {
-        setActiveView('home');
-      }
+      setActiveView(viewParam);
+    } else {
+      // Painel Geral removido: redireciona por padrão para o fechamento Carrefour
+      setSelectedClient('carrefour');
+      setActiveView('client_hub');
+      setSearchParams({ client: 'carrefour' }, { replace: true });
     }
   }, [clientParam, viewParam]);
 
@@ -86,9 +87,9 @@ export default function GestaoFaltas() {
   };
 
   const handleVoltar = () => {
-    setSelectedClient(null);
-    setActiveView('home');
-    setSearchParams({}, { replace: true });
+    setSelectedClient('carrefour');
+    setActiveView('client_hub');
+    setSearchParams({ client: 'carrefour' }, { replace: true });
   };
 
   return (
@@ -149,7 +150,6 @@ export default function GestaoFaltas() {
       {selectedClient ? (
         <ClientHub 
           clientCode={selectedClient}
-          onVoltar={handleVoltar}
           showToast={showToast}
           onOpenWhatsAppModal={() => setIsWhatsAppModalOpen(true)}
           fechamentoAtivo={fechamentoAtivo}
@@ -190,16 +190,28 @@ export default function GestaoFaltas() {
 
           {activeView === 'tarifas' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-3">
                 <button 
                   onClick={handleVoltar}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-800 text-neutral-300 hover:text-white text-xs font-medium border border-neutral-700 cursor-pointer"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white text-xs font-medium border border-neutral-300 dark:border-neutral-700 cursor-pointer"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   <span>Voltar aos Clientes</span>
                 </button>
+
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-neutral-500 font-medium">Cliente Selecionado:</span>
+                  <select 
+                    value={selectedClient || 'carrefour'}
+                    onChange={(e) => setSelectedClient(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold cursor-pointer"
+                  >
+                    <option value="carrefour">Carrefour</option>
+                    <option value="protege">Grupo Protege</option>
+                  </select>
+                </div>
               </div>
-              <LojasConfig showToast={showToast} clientCode="carrefour" />
+              <LojasConfig showToast={showToast} clientCode={selectedClient || 'carrefour'} />
             </div>
           )}
         </>

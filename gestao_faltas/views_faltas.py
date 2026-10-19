@@ -40,8 +40,9 @@ class FechamentoViewSet(viewsets.ModelViewSet):
     def inicializar_periodo(self, request):
         cliente_id = request.data.get('cliente_id')
         cliente_codigo = request.data.get('cliente_codigo')
-        ano = int(request.data.get('ano', 2026))
-        mes = int(request.data.get('mes', 9))
+        hoje = date.today()
+        ano = int(request.data.get('ano') or hoje.year)
+        mes = int(request.data.get('mes') or hoje.month)
 
         if cliente_codigo:
             cliente = Cliente.objects.filter(codigo=cliente_codigo).first()

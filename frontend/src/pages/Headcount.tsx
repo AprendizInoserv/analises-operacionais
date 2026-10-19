@@ -14,7 +14,8 @@ import {
   Clock,
   UserCheck,
   Download,
-  Loader2
+  Loader2,
+  FileSpreadsheet
 } from 'lucide-react';
 import api from '../api/client';
 import { toast } from 'sonner';
@@ -337,6 +338,39 @@ export default function Headcount() {
     }
   };
 
+  // Exportar histórico de presenças da loja selecionada (Aba 1: Total por Dia | Aba 2: Por Colaborador)
+  const [isExportingPresencas, setIsExportingPresencas] = useState(false);
+
+  const handleExportarPresencasLoja = async (lojaId: string, lojaNome: string) => {
+    try {
+      setIsExportingPresencas(true);
+      const params = new URLSearchParams();
+      if (anoMes) params.append('ano_mes', anoMes);
+
+      const response = await api.get(`/lojas/api/presencas/exportar/${lojaId}/?${params.toString()}`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      const cleanNome = lojaNome.toLowerCase().replace(/[^a-z0-9]/g, '_');
+      link.setAttribute('download', `presencas_${cleanNome}_${anoMes}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+      toast.success('Planilha de presenças (2 abas) exportada com sucesso!');
+    } catch (err) {
+      console.error('Erro ao exportar presenças da loja para Excel:', err);
+      toast.error('Não foi possível exportar a planilha de presenças.');
+    } finally {
+      setIsExportingPresencas(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Cabeçalho */}
@@ -652,15 +686,31 @@ export default function Headcount() {
                 })()}
 
                 {selectedLoja && (
-                  <button
-                    onClick={() => handleSyncLoja30Dias(selectedLoja.id)}
-                    disabled={syncingLoja30}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary-active text-white text-xs font-bold rounded-lg disabled:opacity-50 transition-all shadow-xs cursor-pointer disabled:cursor-not-allowed"
-                    title="Sincronizar batidas dos últimos 30 dias desta filial"
-                  >
-                    <RefreshCw className={`h-3.5 w-3.5 ${syncingLoja30 ? 'animate-spin' : ''}`} />
-                    {syncingLoja30 ? 'Sincronizando 30d...' : 'Sincronizar Últimos 30 Dias'}
-                  </button>
+                  <>
+                    <button
+                      onClick={() => handleExportarPresencasLoja(selectedLoja.id, selectedLoja.nome)}
+                      disabled={isExportingPresencas}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg disabled:opacity-50 transition-all shadow-xs cursor-pointer disabled:cursor-not-allowed"
+                      title="Exportar dados de presenças desta filial em planilha Excel oficial com duas abas (Total por Dia e por Colaborador)"
+                    >
+                      {isExportingPresencas ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <FileSpreadsheet className="h-3.5 w-3.5" />
+                      )}
+                      <span>{isExportingPresencas ? 'Exportando Excel...' : 'Exportar Excel (2 Abas)'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleSyncLoja30Dias(selectedLoja.id)}
+                      disabled={syncingLoja30}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary-active text-white text-xs font-bold rounded-lg disabled:opacity-50 transition-all shadow-xs cursor-pointer disabled:cursor-not-allowed"
+                      title="Sincronizar batidas dos últimos 30 dias desta filial"
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${syncingLoja30 ? 'animate-spin' : ''}`} />
+                      {syncingLoja30 ? 'Sincronizando 30d...' : 'Sincronizar Últimos 30 Dias'}
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -738,9 +788,27 @@ export default function Headcount() {
 
               {/* Detalhes do Dia Selecionado (Col 8 a 12) */}
               <div className="lg:col-span-5 flex flex-col gap-4 border border-neutral-200 dark:border-neutral-800 p-4 rounded-xl max-h-[50vh] lg:max-h-none overflow-y-auto">
-                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block border-b border-neutral-100 dark:border-neutral-850 pb-1.5">
-                  Detalhamento de Entrada
-                </span>
+                <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-850 pb-1.5">
+                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">
+                    Detalhamento de Entrada
+                  </span>
+
+                  {selectedLoja && (
+                    <button
+                      onClick={() => handleExportarPresencasLoja(selectedLoja.id, selectedLoja.nome)}
+                      disabled={isExportingPresencas}
+                      className="flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-md disabled:opacity-50 transition-all cursor-pointer shadow-xs"
+                      title="Exportar tabela de presenças em Excel (Aba 1: Total de Cada Dia | Aba 2: Presenças por Colaborador)"
+                    >
+                      {isExportingPresencas ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Download className="h-3 w-3" />
+                      )}
+                      <span>Exportar Excel</span>
+                    </button>
+                  )}
+                </div>
 
                 {!selectedDia ? (
                   <div className="py-20 flex flex-col items-center justify-center text-center gap-3 text-neutral-400 dark:text-neutral-500 italic">

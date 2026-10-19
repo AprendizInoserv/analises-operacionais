@@ -57,6 +57,7 @@ from .headcount import (
 from .presencas import (
     loja_presencas_calendario_api,
     loja_presencas_dia_api,
+    loja_presencas_exportar_excel_api,
     lojas_presencas_sincronizar_geral_api,
     loja_presencas_sincronizar_individual_api,
     loja_presencas_sincronizar_progresso_api,
@@ -111,6 +112,7 @@ __all__ = [
     "premios_filtro_opcoes_api",
     "loja_presencas_calendario_api",
     "loja_presencas_dia_api",
+    "loja_presencas_exportar_excel_api",
     "lojas_presencas_sincronizar_geral_api",
     "loja_presencas_sincronizar_individual_api",
     "loja_presencas_sincronizar_progresso_api",

@@ -400,7 +400,7 @@ export default function Sidebar({ username = 'Usuário', email = '', onLogout, p
                     <SidebarMenuButton 
                       onClick={() => {
                         if (!open) {
-                          navigate('/faltas');
+                          navigate('/faltas?client=carrefour');
                         } else {
                           setFaltasSubOpen(!faltasSubOpen);
                         }
@@ -423,16 +423,6 @@ export default function Sidebar({ username = 'Usuário', email = '', onLogout, p
 
                     {open && faltasSubOpen && (
                       <SidebarMenuSub>
-                        <SidebarMenuSubItem>
-                          <SidebarMenuButton 
-                            asChild 
-                            isActive={location.pathname === '/faltas' && !location.search}
-                          >
-                            <Link to="/faltas">
-                              <span className="truncate">Painel Geral</span>
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuSubItem>
                         <SidebarMenuSubItem>
                           <SidebarMenuButton 
                             asChild 
@@ -463,16 +453,7 @@ export default function Sidebar({ username = 'Usuário', email = '', onLogout, p
                             </Link>
                           </SidebarMenuButton>
                         </SidebarMenuSubItem>
-                        <SidebarMenuSubItem>
-                          <SidebarMenuButton 
-                            asChild 
-                            isActive={location.pathname === '/faltas' && location.search.includes('view=tarifas')}
-                          >
-                            <Link to="/faltas?view=tarifas">
-                              <span className="truncate">Lojas & Tarifas</span>
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuSubItem>
+
                         <SidebarMenuSubItem>
                           <SidebarMenuButton 
                             asChild 

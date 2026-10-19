@@ -342,7 +342,7 @@ export default function GeradorEmails({
                     padding: '8px 10px 8px 32px',
                     borderRadius: '8px',
                     border: '1px solid var(--border-color)',
-                    background: 'rgba(255,255,255,0.05)',
+                    background: 'var(--bg-card)',
                     color: 'var(--text-primary)',
                     fontSize: '0.85rem'
                   }}
@@ -364,7 +364,7 @@ export default function GeradorEmails({
                         cursor: 'pointer',
                         background: isSelected 
                           ? (isProtege ? 'rgba(56, 189, 248, 0.15)' : 'rgba(89, 159, 166, 0.2)') 
-                          : 'rgba(255,255,255,0.02)',
+                          : 'var(--bg-card-hover)',
                         border: isSelected ? `1px solid ${accentColor}` : '1px solid transparent',
                         transition: 'all 0.2s'
                       }}
@@ -404,7 +404,7 @@ export default function GeradorEmails({
                 <div style={{ 
                   padding: '12px 16px', 
                   borderRadius: '8px', 
-                  background: 'rgba(255,255,255,0.03)', 
+                  background: 'var(--bg-card-hover)', 
                   border: '1px solid var(--border-color)',
                   display: 'flex',
                   justifyContent: 'space-between',
@@ -491,7 +491,7 @@ export default function GeradorEmails({
                       padding: '8px 12px',
                       borderRadius: '6px',
                       border: '1px solid var(--border-color)',
-                      background: 'rgba(255,255,255,0.05)',
+                      background: 'var(--bg-card)',
                       color: 'var(--text-primary)',
                       fontSize: '0.85rem'
                     }}
@@ -527,7 +527,7 @@ export default function GeradorEmails({
                       padding: '8px 12px',
                       borderRadius: '6px',
                       border: '1px solid var(--border-color)',
-                      background: 'rgba(255,255,255,0.05)',
+                      background: 'var(--bg-card)',
                       color: 'var(--text-primary)',
                       fontSize: '0.85rem',
                       fontWeight: 600
@@ -564,7 +564,7 @@ export default function GeradorEmails({
                       padding: '10px 12px',
                       borderRadius: '6px',
                       border: '1px solid var(--border-color)',
-                      background: 'rgba(255,255,255,0.05)',
+                      background: 'var(--bg-card)',
                       color: 'var(--text-primary)',
                       fontSize: '0.85rem',
                       lineHeight: 1.5,
@@ -583,7 +583,7 @@ export default function GeradorEmails({
               <div style={{ 
                 padding: '14px 18px', 
                 borderRadius: '8px', 
-                background: 'rgba(255,255,255,0.03)', 
+                background: 'var(--bg-card-hover)', 
                 border: '1px solid var(--border-color)',
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -647,7 +647,7 @@ export default function GeradorEmails({
                     padding: '8px 12px',
                     borderRadius: '6px',
                     border: '1px solid var(--border-color)',
-                    background: 'rgba(255,255,255,0.05)',
+                    background: 'var(--bg-card)',
                     color: 'var(--text-primary)',
                     fontSize: '0.85rem'
                   }}
@@ -677,7 +677,7 @@ export default function GeradorEmails({
                     padding: '8px 12px',
                     borderRadius: '6px',
                     border: '1px solid var(--border-color)',
-                    background: 'rgba(255,255,255,0.05)',
+                    background: 'var(--bg-card)',
                     color: 'var(--text-primary)',
                     fontSize: '0.85rem',
                     fontWeight: 600
@@ -708,7 +708,7 @@ export default function GeradorEmails({
                     padding: '10px 12px',
                     borderRadius: '6px',
                     border: '1px solid var(--border-color)',
-                    background: 'rgba(255,255,255,0.05)',
+                    background: 'var(--bg-card)',
                     color: 'var(--text-primary)',
                     fontSize: '0.85rem',
                     lineHeight: 1.5,

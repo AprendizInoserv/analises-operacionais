@@ -35,6 +35,7 @@ urlpatterns = [
     path('agendamentos/colaboradores-ativos/', views_agenda.colaborador_ativos_completo, name='colaborador_ativos_completo'),
     path('agendamentos/historico-limpeza/', views_agenda.historico_limpeza_vidros, name='historico_limpeza_vidros'),
     path('testes/', views_testes.testes_list, name='testes_list'),
+    path('testes/exportar/', views_testes.testes_exportar_excel, name='testes_exportar_excel'),
     path('testes/cargos/', views_testes.cargos_unicos_list, name='cargos_unicos_list'),
     path('testes/<int:pk>/ausencias/', views_testes.colaborador_ausencias_summary, name='colaborador_ausencias_summary'),
     path('testes/colaborador/<int:colaborador_id>/ausencias/', views_testes.colaborador_ausencias_avulso, name='colaborador_ausencias_avulso'),

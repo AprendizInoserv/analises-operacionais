@@ -19,12 +19,16 @@
   border-radius: var(--radius-lg);
   padding: 22px 26px;
   margin-bottom: 20px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 18px;
+}
+
+.dark .faa-header-card {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
 }
 
 .faa-header-left {
@@ -87,8 +91,8 @@
 }
 
 .faa-control-pill {
-  background: #191919;
-  border: 1px solid #2a2a2a;
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border-card);
   border-radius: var(--radius-md);
   padding: 6px 12px;
   display: inline-flex;
@@ -110,7 +114,7 @@
 }
 
 .faa-control-pill select option {
-  background: #171717;
+  background: var(--bg-card);
   color: var(--text-primary);
 }
 
@@ -124,7 +128,7 @@
 
 .faa-upload-card {
   background: var(--bg-card);
-  border: 2px dashed #2b2b2b;
+  border: 2px dashed var(--border-card);
   border-radius: var(--radius-lg);
   padding: 22px;
   display: flex;
@@ -137,6 +141,10 @@
 .faa-upload-card:hover {
   border-color: var(--accent-teal);
   background: rgba(89, 159, 166, 0.03);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+.dark .faa-upload-card:hover {
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 }
 
@@ -149,8 +157,8 @@
   width: 46px;
   height: 46px;
   border-radius: var(--radius-md);
-  background: #1c1c1c;
-  border: 1px solid #282828;
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -196,9 +204,9 @@
 }
 
 .faa-file-input-wrapper input[type="file"]::file-selector-button {
-  background: #242424;
+  background: var(--bg-card-hover);
   color: var(--text-primary);
-  border: 1px solid #333333;
+  border: 1px solid var(--border-card);
   padding: 6px 14px;
   border-radius: var(--radius-sm);
   font-size: 0.78rem;
@@ -367,7 +375,7 @@
 }
 
 .faa-tab-btn:hover {
-  background: #1f1f1f;
+  background: var(--bg-card-hover);
   color: var(--text-primary);
 }
 
@@ -392,7 +400,7 @@
   justify-content: space-between;
   padding: 14px 18px;
   border-bottom: 1px solid var(--border-card);
-  background: #141414;
+  background: var(--bg-card-hover);
   gap: 12px;
   flex-wrap: wrap;
 }
@@ -401,8 +409,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #1c1c1c;
-  border: 1px solid #2b2b2b;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
   border-radius: var(--radius-md);
   padding: 7px 14px;
   width: 320px;
@@ -429,8 +437,12 @@
   border: 1px solid var(--border-card);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.05);
   margin-bottom: 24px;
+}
+
+.dark .faa-table-card {
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
 }
 
 .faa-table-container {
@@ -446,7 +458,7 @@
 }
 
 .faa-table thead tr {
-  background: #121212;
+  background: var(--bg-card-hover);
   border-bottom: 2px solid var(--border-card);
 }
 
@@ -462,7 +474,7 @@
 
 .faa-table td {
   padding: 11px 14px;
-  border-bottom: 1px solid #202020;
+  border-bottom: 1px solid var(--border-subtle);
   color: var(--text-primary);
   vertical-align: middle;
 }
@@ -472,7 +484,7 @@
 }
 
 .faa-table tbody tr:hover {
-  background: #1a1a1a;
+  background: var(--bg-card-hover);
 }
 
 .faa-table tbody tr.selected {
@@ -518,24 +530,29 @@
 }
 
 .faa-num-cell.emerald {
-  color: #34d399;
+  color: #10b981;
   font-weight: 700;
 }
 
 .faa-num-cell.amber {
-  color: #fbbf24;
+  color: #d97706;
   font-weight: 700;
 }
 
 .faa-num-cell.rose {
-  color: #fb7185;
+  color: #e11d48;
   font-weight: 700;
 }
 
 .faa-num-cell.blue {
-  color: #38bdf8;
+  color: #0284c7;
   font-weight: 600;
 }
+
+.dark .faa-num-cell.emerald { color: #34d399; }
+.dark .faa-num-cell.amber { color: #fbbf24; }
+.dark .faa-num-cell.rose { color: #fb7185; }
+.dark .faa-num-cell.blue { color: #38bdf8; }
 
 .faa-num-cell.mono {
   font-family: var(--font-mono);
@@ -556,9 +573,9 @@
 }
 
 .faa-btn-icon:hover {
-  background: #242424;
+  background: var(--bg-card-hover);
   color: var(--accent-teal);
-  border-color: #333333;
+  border-color: var(--border-card);
 }
 
 /* 8. Modais */
@@ -568,7 +585,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.82);
+  background: rgba(0, 0, 0, 0.65);
   backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
@@ -579,15 +596,22 @@
 }
 
 .faa-modal-card {
-  background: #141722;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
   border-radius: var(--radius-xl);
   width: 100%;
   max-width: 580px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.15);
   padding: 26px;
+  color: var(--text-primary);
+}
+
+.dark .faa-modal-card {
+  background: #141722;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
 }
 
 .faa-modal-header {
@@ -624,8 +648,8 @@
 .faa-form-group select,
 .faa-form-group textarea {
   width: 100%;
-  background: #1a1e2e;
-  border: 1px solid #2d3448;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
   border-radius: var(--radius-md);
   padding: 9px 12px;
   color: var(--text-primary);
@@ -651,7 +675,7 @@
 .faa-list-box {
   margin-top: 18px;
   padding-top: 14px;
-  border-top: 1px solid #252a3b;
+  border-top: 1px solid var(--border-subtle);
   max-height: 200px;
   overflow-y: auto;
 }
@@ -661,8 +685,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 9px 12px;
-  background: #171b28;
-  border: 1px solid #232838;
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   margin-bottom: 8px;
   font-size: 0.82rem;
@@ -687,11 +711,11 @@
 .faa-modal-tabs {
   display: flex;
   gap: 6px;
-  background: #0f121b;
+  background: var(--bg-card-hover);
   padding: 4px;
   border-radius: var(--radius-md);
   margin-bottom: 18px;
-  border: 1px solid #1f2537;
+  border: 1px solid var(--border-subtle);
 }
 
 .faa-modal-tab-btn {
@@ -713,7 +737,7 @@
 
 .faa-modal-tab-btn:hover {
   color: var(--text-primary);
-  background: #171c2a;
+  background: var(--border-subtle);
 }
 
 .faa-modal-tab-btn.active {
@@ -764,4 +788,275 @@
   color: var(--accent-teal);
   flex-shrink: 0;
   margin-top: 2px;
+}
+
+/* =========================================================================
+   FILTROS MODERNOS E RESPONSIVOS (PROMPT 4)
+   ========================================================================= */
+.faa-filters-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+.dark .faa-filters-card {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.faa-filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+  align-items: flex-end;
+}
+
+.faa-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.faa-filter-field label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.faa-input-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.faa-input-search-wrap .faa-search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.faa-input-search {
+  width: 100%;
+  padding: 8px 32px 8px 36px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.825rem;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.faa-input-search:focus {
+  border-color: var(--accent-teal);
+  box-shadow: 0 0 0 2px var(--accent-teal-bg);
+}
+
+.faa-input-clear-btn {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.faa-input-clear-btn:hover {
+  color: var(--text-primary);
+}
+
+.faa-filters-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.faa-filters-stats {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.faa-filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--accent-teal-bg);
+  color: var(--accent-teal);
+  font-size: 0.72rem;
+  font-weight: 600;
+  border: 1px solid var(--border-card);
+}
+
+.faa-btn-clear-filters {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-card);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.775rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.faa-btn-clear-filters:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+/* =========================================================================
+   BARRA DE AÇÕES (ATUALIZAR, EXPORTAR, CONFIGURAR)
+   ========================================================================= */
+.faa-actions-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.faa-actions-group-left,
+.faa-actions-group-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* =========================================================================
+   PAGINAÇÃO COMPONENTIZADA (PROMPT 4)
+   ========================================================================= */
+.faa-pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border-card);
+  background: var(--bg-card);
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.faa-pagination-info {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.faa-pagination-info strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.faa-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.faa-pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-card);
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.faa-pagination-btn:hover:not(:disabled) {
+  border-color: var(--accent-teal);
+  background: var(--accent-teal-bg);
+  color: var(--accent-teal);
+}
+
+.faa-pagination-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.faa-pagination-page-indicator {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  min-width: 90px;
+  text-align: center;
+}
+
+/* =========================================================================
+   CABEÇALHOS ORDENÁVEIS E ESTADO VAZIO
+   ========================================================================= */
+.faa-th-sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.faa-th-sortable:hover {
+  background: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.faa-th-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.faa-empty-state-box {
+  padding: 42px 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.faa-empty-state-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.faa-empty-state-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  max-width: 400px;
 }

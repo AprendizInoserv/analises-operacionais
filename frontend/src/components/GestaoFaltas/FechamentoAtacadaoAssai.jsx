@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   UploadCloud,
   FileSpreadsheet,
@@ -11,6 +11,7 @@ import {
   Users,
   Calendar,
   Clock,
+  ChevronLeft,
   ChevronRight,
   TrendingUp,
   Settings,
@@ -19,16 +20,59 @@ import {
   Info,
   Trash2,
   FileText,
-  ListPlus
+  ListPlus,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  X,
+  Filter
 } from 'lucide-react';
 import { api } from '../../services/api';
+import SearchableSelect from '../ui/searchable-select';
 import './FechamentoAtacadaoAssai.css';
+
+const MESES = [
+  { val: 1, nome: 'Janeiro' },
+  { val: 2, nome: 'Fevereiro' },
+  { val: 3, nome: 'Março' },
+  { val: 4, nome: 'Abril' },
+  { val: 5, nome: 'Maio' },
+  { val: 6, nome: 'Junho' },
+  { val: 7, nome: 'Julho' },
+  { val: 8, nome: 'Agosto' },
+  { val: 9, nome: 'Setembro' },
+  { val: 10, nome: 'Outubro' },
+  { val: 11, nome: 'Novembro' },
+  { val: 12, nome: 'Dezembro' },
+];
+
+const ANOS = [2024, 2025, 2026, 2027, 2028];
 
 export default function FechamentoAtacadaoAssai({ showToast }) {
   // Parâmetros de Entrada
-  const [mes, setMes] = useState(8);
-  const [ano, setAno] = useState(2026);
+  const [mes, setMes] = useState(() => {
+    try {
+      const cached = localStorage.getItem('fechamento_atacadao_assai_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.mes) return Number(parsed.mes);
+      }
+    } catch (e) {}
+    return 9;
+  });
+  const [ano, setAno] = useState(() => {
+    try {
+      const cached = localStorage.getItem('fechamento_atacadao_assai_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.ano) return Number(parsed.ano);
+      }
+    } catch (e) {}
+    return 2026;
+  });
   const [hecMinutos, setHecMinutos] = useState(0);
+  const [mesesDisponiveis, setMesesDisponiveis] = useState([]);
+  const [buscandoMes, setBuscandoMes] = useState(false);
 
   // Arquivos
   const [arquivoPonto, setArquivoPonto] = useState(null);
@@ -49,6 +93,17 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
   // Filtros e Navegação
   const [activeTab, setActiveTab] = useState('lojas'); // 'lojas', 'inconsistencias', 'diario'
   const [searchTerm, setSearchTerm] = useState('');
+  const [filtroCliente, setFiltroCliente] = useState('');
+  const [filtroCoordenacao, setFiltroCoordenacao] = useState('');
+  const [filtroSupervisao, setFiltroSupervisao] = useState('');
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const [sortConfig, setSortConfig] = useState({ key: 'loja', direction: 'asc' });
+
+  // Paginação e busca para inconsistências, diário e quadros
+  const [buscaInc, setBuscaInc] = useState('');
+  const [paginaInc, setPaginaInc] = useState(1);
+  const [paginaDiario, setPaginaDiario] = useState(1);
+  const [paginaQuadros, setPaginaQuadros] = useState(1);
   const [selectedLoja, setSelectedLoja] = useState(() => {
     try {
       const cached = localStorage.getItem('fechamento_atacadao_assai_cache');
@@ -138,32 +193,46 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
     }
   };
 
-  const carregarUltimoFechamento = async () => {
+  const carregarFechamento = async (mesSel = mes, anoSel = ano, silent = false) => {
+    if (!silent) setBuscandoMes(true);
     try {
-      const data = await api.getUltimoFechamentoAtacadaoAssai();
+      const data = await api.getUltimoFechamentoAtacadaoAssai(mesSel, anoSel);
+      if (data?.meses_disponiveis) {
+        setMesesDisponiveis(data.meses_disponiveis);
+      }
       if (data && (data.tem_fechamento || data.kpis)) {
         setResultadoProcessamento(data);
-        localStorage.setItem('fechamento_atacadao_assai_cache', JSON.stringify(data));
-        if (data.mes) setMes(data.mes);
-        if (data.ano) setAno(data.ano);
+        try {
+          localStorage.setItem('fechamento_atacadao_assai_cache', JSON.stringify(data));
+        } catch (eCache) {}
         if (data.resumo_lojas && data.resumo_lojas.length > 0) {
-          setSelectedLoja(prev => prev || data.resumo_lojas[0].loja);
+          setSelectedLoja(prev => {
+            const existe = data.resumo_lojas.some(r => r.loja === prev);
+            return existe ? prev : data.resumo_lojas[0].loja;
+          });
         }
       } else {
-        localStorage.removeItem('fechamento_atacadao_assai_cache');
         setResultadoProcessamento(null);
         setSelectedLoja(null);
       }
     } catch (e) {
       console.warn('Nenhum fechamento ativo prévio no servidor:', e);
+      if (!silent) showToast('Erro ao carregar fechamento: ' + e.message, 'error');
+    } finally {
+      if (!silent) setBuscandoMes(false);
     }
   };
+
+  const carregarUltimoFechamento = () => carregarFechamento(mes, ano);
 
   useEffect(() => {
     carregarQuadros();
     carregarDiarias();
-    carregarUltimoFechamento();
   }, []);
+
+  useEffect(() => {
+    carregarFechamento(mes, ano);
+  }, [mes, ano]);
 
   const handleLimparFechamento = async () => {
     if (!window.confirm('Deseja realmente limpar o fechamento ativo em tela para iniciar um novo processamento?')) return;
@@ -178,6 +247,7 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
     setArquivoPonto(null);
     setArquivoMarcas(null);
     showToast('Fechamento ativo limpo.', 'info');
+    await carregarFechamento(mes, ano, true);
   };
 
   const handleProcessar = async (usarPadrao = false) => {
@@ -212,6 +282,11 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
       if (resp.resumo_lojas && resp.resumo_lojas.length > 0) {
         setSelectedLoja(resp.resumo_lojas[0].loja);
       }
+      if (resp.meses_disponiveis) {
+        setMesesDisponiveis(resp.meses_disponiveis);
+      } else {
+        await carregarFechamento(mes, ano, true);
+      }
       showToast('Fechamento Atacadão e Assaí processado com 100% de precisão!', 'success');
     } catch (err) {
       showToast('Erro ao processar: ' + (err.message || 'Falha na comunicação com o backend'), 'error');
@@ -221,7 +296,7 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
     }
   };
 
-  const handleEditarQuadroRapido = async (loja, quadroAtual) => {
+  const handleEditarQuadroRapido = async (loja, quadroAtual, lojaOriginal) => {
     const input = window.prompt(`Informe o número de pessoas (postos previstos) no quadro da loja "${loja}":`, quadroAtual || 14);
     if (input === null) return;
     const novoQuadro = parseInt(input, 10);
@@ -236,6 +311,13 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
         quadro_previsto: novoQuadro,
         ativo: true
       });
+      if (lojaOriginal && lojaOriginal !== loja) {
+        await api.salvarQuadroAtacadaoAssai({
+          nome_loja: lojaOriginal,
+          quadro_previsto: novoQuadro,
+          ativo: true
+        });
+      }
       showToast(`Quadro de "${loja}" atualizado para ${novoQuadro} postos. Recalculando...`, 'success');
       await carregarUltimoFechamento();
       await carregarQuadros();
@@ -292,15 +374,206 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
     }
   };
 
-  // Filtragem das lojas
-  const lojasFiltradas = resultadoProcessamento?.resumo_lojas?.filter(l =>
-    l.loja.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  // Opções dinâmicas a partir dos dados reais do fechamento (sem duplicar nem inventar valores)
+  const clientesOpcoes = useMemo(() => {
+    if (!resultadoProcessamento?.resumo_lojas) return [];
+    const set = new Set();
+    resultadoProcessamento.resumo_lojas.forEach(r => {
+      if (r.cliente) set.add(r.cliente);
+    });
+    return Array.from(set).sort().map(c => ({ value: c, label: c }));
+  }, [resultadoProcessamento]);
 
-  // Dados diários da loja selecionada
-  const diarioLojaSelecionada = resultadoProcessamento?.amostra_diaria?.filter(d =>
-    d.loja === selectedLoja
-  ) || [];
+  const coordenacoesOpcoes = useMemo(() => {
+    if (!resultadoProcessamento?.resumo_lojas) return [];
+    const set = new Set();
+    resultadoProcessamento.resumo_lojas.forEach(r => {
+      if (r.coordenacao && r.coordenacao !== 'Não Informado') set.add(r.coordenacao);
+    });
+    return Array.from(set).sort().map(c => ({ value: c, label: c }));
+  }, [resultadoProcessamento]);
+
+  const supervisoresOpcoes = useMemo(() => {
+    if (!resultadoProcessamento?.resumo_lojas) return [];
+    const set = new Set();
+    resultadoProcessamento.resumo_lojas.forEach(r => {
+      if (r.supervisao && r.supervisao !== 'Não Informado') set.add(r.supervisao);
+    });
+    return Array.from(set).sort().map(s => ({ value: s, label: s }));
+  }, [resultadoProcessamento]);
+
+  const matchesFilter = (val, filterString) => {
+    if (!filterString) return true;
+    const selectedList = filterString.split(',').filter(Boolean);
+    if (selectedList.length === 0) return true;
+    return selectedList.includes(val);
+  };
+
+  // Filtragem combinada das lojas: busca por nome (referência oficial ou relatório) + Cliente + Coordenação + Supervisão
+  const lojasFiltradas = useMemo(() => {
+    if (!resultadoProcessamento?.resumo_lojas) return [];
+    return resultadoProcessamento.resumo_lojas.filter(l => {
+      const nomeRef = (l.nome_referencia || l.loja || '').toLowerCase();
+      const nomeOrig = (l.loja_original || '').toLowerCase();
+      const st = searchTerm.toLowerCase();
+      const matchNome = !searchTerm || nomeRef.includes(st) || nomeOrig.includes(st);
+      const matchCliente = matchesFilter(l.cliente, filtroCliente);
+      const matchCoord = matchesFilter(l.coordenacao, filtroCoordenacao);
+      const matchSup = matchesFilter(l.supervisao, filtroSupervisao);
+      return matchNome && matchCliente && matchCoord && matchSup;
+    });
+  }, [resultadoProcessamento, searchTerm, filtroCliente, filtroCoordenacao, filtroSupervisao]);
+
+  // Reset de página ao alterar qualquer filtro ou busca
+  useEffect(() => {
+    setPaginaAtual(1);
+  }, [searchTerm, filtroCliente, filtroCoordenacao, filtroSupervisao]);
+
+  const handleLimparFiltros = () => {
+    setSearchTerm('');
+    setFiltroCliente('');
+    setFiltroCoordenacao('');
+    setFiltroSupervisao('');
+    setPaginaAtual(1);
+  };
+
+  const temFiltroAtivo = Boolean(searchTerm || filtroCliente || filtroCoordenacao || filtroSupervisao);
+
+  // Ordenação das lojas
+  const handleSort = (key) => {
+    setSortConfig(prev => {
+      if (prev.key === key) {
+        return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      return { key, direction: 'asc' };
+    });
+  };
+
+  const sortedLojas = useMemo(() => {
+    const list = [...lojasFiltradas];
+    if (!sortConfig.key) return list;
+    list.sort((a, b) => {
+      let aVal = a[sortConfig.key];
+      let bVal = b[sortConfig.key];
+      if (typeof aVal === 'string') {
+        const cmp = aVal.localeCompare(bVal, 'pt-BR', { numeric: true, sensitivity: 'base' });
+        return sortConfig.direction === 'asc' ? cmp : -cmp;
+      }
+      if (aVal === undefined || aVal === null) aVal = 0;
+      if (bVal === undefined || bVal === null) bVal = 0;
+      return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+    });
+    return list;
+  }, [lojasFiltradas, sortConfig]);
+
+  const ITENS_POR_PAGINA = 10;
+  const totalPaginas = Math.max(1, Math.ceil(sortedLojas.length / ITENS_POR_PAGINA));
+
+  // Proteção: garante página válida mesmo após exclusão/alteração/filtro
+  useEffect(() => {
+    if (paginaAtual > totalPaginas) {
+      setPaginaAtual(totalPaginas);
+    }
+  }, [totalPaginas, paginaAtual]);
+
+  const paginatedLojas = useMemo(() => {
+    const start = (paginaAtual - 1) * ITENS_POR_PAGINA;
+    return sortedLojas.slice(start, start + ITENS_POR_PAGINA);
+  }, [sortedLojas, paginaAtual]);
+
+  // Inconsistências filtradas e paginadas
+  const inconsistenciasFiltradas = useMemo(() => {
+    if (!resultadoProcessamento?.inconsistencias) return [];
+    if (!buscaInc) return resultadoProcessamento.inconsistencias;
+    const term = buscaInc.toLowerCase();
+    return resultadoProcessamento.inconsistencias.filter(inc =>
+      (inc.re && String(inc.re).toLowerCase().includes(term)) ||
+      (inc.cpf && String(inc.cpf).toLowerCase().includes(term)) ||
+      (inc.loja && String(inc.loja).toLowerCase().includes(term)) ||
+      (inc.tipo && String(inc.tipo).toLowerCase().includes(term)) ||
+      (inc.detalhe && String(inc.detalhe).toLowerCase().includes(term))
+    );
+  }, [resultadoProcessamento, buscaInc]);
+
+  const totalPaginasInc = Math.max(1, Math.ceil(inconsistenciasFiltradas.length / ITENS_POR_PAGINA));
+
+  useEffect(() => {
+    setPaginaInc(1);
+  }, [buscaInc]);
+
+  useEffect(() => {
+    if (paginaInc > totalPaginasInc) {
+      setPaginaInc(totalPaginasInc);
+    }
+  }, [totalPaginasInc, paginaInc]);
+
+  const paginatedInconsistencias = useMemo(() => {
+    const start = (paginaInc - 1) * ITENS_POR_PAGINA;
+    return inconsistenciasFiltradas.slice(start, start + ITENS_POR_PAGINA);
+  }, [inconsistenciasFiltradas, paginaInc]);
+
+  // Objeto de dados da loja atualmente selecionada
+  const selectedLojaObj = useMemo(() => {
+    return resultadoProcessamento?.resumo_lojas?.find(l =>
+      l.loja === selectedLoja || l.nome_referencia === selectedLoja || l.loja_original === selectedLoja
+    );
+  }, [resultadoProcessamento, selectedLoja]);
+
+  // Dados diários da loja selecionada e paginados
+  const diarioLojaSelecionada = useMemo(() => {
+    return resultadoProcessamento?.amostra_diaria?.filter(d =>
+      d.loja === selectedLoja ||
+      d.nome_referencia === selectedLoja ||
+      d.loja_original === selectedLoja ||
+      (selectedLojaObj && (
+        d.loja === selectedLojaObj.loja ||
+        d.loja === selectedLojaObj.nome_referencia ||
+        d.loja === selectedLojaObj.loja_original
+      ))
+    ) || [];
+  }, [resultadoProcessamento, selectedLoja, selectedLojaObj]);
+
+  const totalPaginasDiario = Math.max(1, Math.ceil(diarioLojaSelecionada.length / ITENS_POR_PAGINA));
+
+  useEffect(() => {
+    setPaginaDiario(1);
+  }, [selectedLoja]);
+
+  useEffect(() => {
+    if (paginaDiario > totalPaginasDiario) {
+      setPaginaDiario(totalPaginasDiario);
+    }
+  }, [totalPaginasDiario, paginaDiario]);
+
+  const paginatedDiario = useMemo(() => {
+    const start = (paginaDiario - 1) * ITENS_POR_PAGINA;
+    return diarioLojaSelecionada.slice(start, start + ITENS_POR_PAGINA);
+  }, [diarioLojaSelecionada, paginaDiario]);
+
+  // Quadros filtrados e paginados
+  const quadrosFiltrados = useMemo(() => {
+    if (!quadrosList) return [];
+    if (!filtroBuscaQuadro) return quadrosList;
+    const term = filtroBuscaQuadro.toLowerCase();
+    return quadrosList.filter(q => q.nome_loja.toLowerCase().includes(term));
+  }, [quadrosList, filtroBuscaQuadro]);
+
+  const totalPaginasQuadros = Math.max(1, Math.ceil(quadrosFiltrados.length / ITENS_POR_PAGINA));
+
+  useEffect(() => {
+    setPaginaQuadros(1);
+  }, [filtroBuscaQuadro]);
+
+  useEffect(() => {
+    if (paginaQuadros > totalPaginasQuadros) {
+      setPaginaQuadros(totalPaginasQuadros);
+    }
+  }, [totalPaginasQuadros, paginaQuadros]);
+
+  const paginatedQuadros = useMemo(() => {
+    const start = (paginaQuadros - 1) * ITENS_POR_PAGINA;
+    return quadrosFiltrados.slice(start, start + ITENS_POR_PAGINA);
+  }, [quadrosFiltrados, paginaQuadros]);
 
   return (
     <div className="faa-container">
@@ -326,18 +599,37 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
 
         <div className="faa-header-controls">
           {/* Seletor Mês/Ano */}
-          <div className="faa-control-pill">
+          <div className="faa-control-pill" title="Selecione o mês e ano do fechamento">
             <Calendar size={15} color="var(--accent-teal)" />
-            <select value={mes} onChange={(e) => setMes(Number(e.target.value))}>
-              <option value={8}>Agosto (08)</option>
-              <option value={9}>Setembro (09)</option>
-              <option value={10}>Outubro (10)</option>
+            <select
+              value={mes}
+              onChange={(e) => setMes(Number(e.target.value))}
+              aria-label="Mês de Referência"
+            >
+              {MESES.map(m => {
+                const temDados = mesesDisponiveis.some(item => item.mes === m.val && item.ano === ano);
+                return (
+                  <option key={m.val} value={m.val}>
+                    {m.nome} ({String(m.val).padStart(2, '0')}){temDados ? ' ✓' : ''}
+                  </option>
+                );
+              })}
             </select>
             <span>/</span>
-            <select value={ano} onChange={(e) => setAno(Number(e.target.value))}>
-              <option value={2026}>2026</option>
-              <option value={2027}>2027</option>
+            <select
+              value={ano}
+              onChange={(e) => setAno(Number(e.target.value))}
+              aria-label="Ano de Referência"
+            >
+              {ANOS.map(a => (
+                <option key={a} value={a}>{a}</option>
+              ))}
             </select>
+            {buscandoMes && (
+              <span style={{ fontSize: '0.72rem', color: 'var(--accent-teal)', marginLeft: '4px' }}>
+                Carregando...
+              </span>
+            )}
           </div>
 
           {/* Parâmetro HEC = DIA */}
@@ -422,7 +714,7 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
       <div className="faa-action-banner">
         <div className="faa-action-note">
           <Info size={18} />
-          <span>Os arquivos originais nunca são modificados. Todo o cruzamento é determinístico, auditável e sem arredondamentos.</span>
+          <span>Os arquivos originais nunca são modificados. Abono de 1 atestado/mês ativo exclusivamente para o cliente Assaí (contabilizado em presença).</span>
         </div>
 
         <div className="faa-action-buttons">
@@ -457,7 +749,7 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
       </div>
 
       {/* 4. Resultados do Fechamento */}
-      {resultadoProcessamento && (
+      {resultadoProcessamento ? (
         <div>
           {/* Barra de Fechamento Vigente Carregado */}
           <div style={{
@@ -488,7 +780,7 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontSize: '0.92rem', color: '#f1f5f9', fontWeight: 700 }}>
-                    Fechamento do Mês Vigente Carregado
+                    Fechamento de {MESES.find(m => m.val === (resultadoProcessamento.mes || mes))?.nome || mes} de {resultadoProcessamento.ano || ano} Carregado
                   </span>
                   <span style={{
                     fontSize: '0.78rem',
@@ -504,7 +796,7 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
                 </div>
                 <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '2px' }}>
                   {resultadoProcessamento.atualizado_em ? (
-                    <span>Último processamento gravado em: <strong>{resultadoProcessamento.atualizado_em}</strong></span>
+                    <span>Processamento gravado em: <strong>{resultadoProcessamento.atualizado_em}</strong></span>
                   ) : (
                     <span>Dados consolidados em memória e disco</span>
                   )}
@@ -515,7 +807,7 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
-                onClick={carregarUltimoFechamento}
+                onClick={() => carregarFechamento(mes, ano)}
                 className="btn btn-secondary btn-sm"
                 title="Recarregar dados do fechamento do servidor"
                 style={{ fontSize: '0.78rem', padding: '6px 12px' }}
@@ -561,7 +853,11 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
                 <div className="faa-kpi-icon emerald"><CheckCircle2 size={16} /></div>
               </div>
               <div className="faa-kpi-value emerald">{resultadoProcessamento.kpis.resultado_total}</div>
-              <div className="faa-kpi-sub">Presenças + Outras Folgas</div>
+              <div className="faa-kpi-sub">
+                {resultadoProcessamento.kpis.total_atestados_abonados > 0 
+                  ? `Presenças (${resultadoProcessamento.kpis.total_atestados_abonados} abonos Assaí) + Folgas`
+                  : 'Presenças + Outras Folgas'}
+              </div>
             </div>
 
             <div className="faa-kpi-card">
@@ -618,13 +914,13 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
                 className={`faa-tab-btn ${activeTab === 'diario' ? 'active' : ''}`}
               >
                 <Calendar size={16} />
-                <span>Detalhamento Diário ({selectedLoja || 'Selecione uma filial'})</span>
+                <span>Detalhamento Diário ({selectedLojaObj?.nome_referencia || selectedLoja || 'Selecione uma filial'})</span>
               </button>
             </div>
 
             <div className="faa-export-group">
               <a
-                href={api.getDownloadAtacadaoAssaiExcelUrl()}
+                href={api.getDownloadAtacadaoAssaiExcelUrl(resultadoProcessamento?.mes || mes, resultadoProcessamento?.ano || ano)}
                 className="btn btn-secondary btn-sm"
                 download
                 title="Download da planilha oficial consolidada com 7 abas"
@@ -634,7 +930,7 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
               </a>
 
               <a
-                href={api.getDownloadAtacadaoAssaiZipUrl()}
+                href={api.getDownloadAtacadaoAssaiZipUrl(resultadoProcessamento?.mes || mes, resultadoProcessamento?.ano || ano)}
                 className="btn btn-secondary btn-sm"
                 download
                 title="Download do pacote ZIP contendo os relatórios em PDF de todas as lojas"
@@ -648,109 +944,480 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
           {/* Aba 1: Tabela de Fechamento por Loja */}
           {activeTab === 'lojas' && (
             <div className="faa-table-card">
-              <div className="faa-filter-bar">
-                <div className="faa-search-box">
-                  <Search size={16} color="var(--text-muted)" />
-                  <input
-                    type="text"
-                    placeholder="Filtrar por filial..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
+              {/* 1. Título e Informações */}
+              <div style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border-card)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px'
+              }}>
+                <div>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Building2 size={18} color="var(--accent-teal)" />
+                    Fechamento Consolidado por Loja
+                    <span className="faa-badge-op assai" style={{ fontSize: '0.68rem', padding: '1px 8px' }}>Atacadão & Assaí</span>
+                  </h3>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    Quadro previsto, apuração de presenças e folgas, atestados abonados e saldo comparativo de faltas
+                  </p>
                 </div>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  Exibindo {lojasFiltradas.length} de {resultadoProcessamento.resumo_lojas?.length} filiais
-                </span>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  Total apurado: <strong>{resultadoProcessamento.resumo_lojas?.length || 0}</strong> filiais
+                </div>
               </div>
 
-              <div className="faa-table-container">
-                <table className="faa-table">
-                  <thead>
-                    <tr>
-                      <th>Loja / Filial</th>
-                      <th style={{ textAlign: 'center' }}>Quadro</th>
-                      <th style={{ textAlign: 'center' }}>Dias</th>
-                      <th style={{ textAlign: 'center' }}>Esperado</th>
-                      <th style={{ textAlign: 'center' }}>Presenças</th>
-                      <th style={{ textAlign: 'center' }}>Folgas</th>
-                      <th style={{ textAlign: 'center' }}>Outras</th>
-                      <th style={{ textAlign: 'center' }}>Atestados</th>
-                      <th style={{ textAlign: 'center' }}>Diárias</th>
-                      <th style={{ textAlign: 'center', color: '#34d399' }}>Resultado</th>
-                      <th style={{ textAlign: 'center', color: '#fbbf24' }}>Comparativo</th>
-                      <th style={{ textAlign: 'center', color: '#fb7185' }}>Faltas RH</th>
-                      <th style={{ textAlign: 'right' }}>HT Total</th>
-                      <th style={{ textAlign: 'center' }}>Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lojasFiltradas.map((r, idx) => {
-                      const isAssai = r.loja.toLowerCase().includes('assai') || r.loja.toLowerCase().includes('sendas');
-                      return (
-                        <tr
-                          key={idx}
-                          className={selectedLoja === r.loja ? 'selected' : ''}
+              {/* 2. Busca e Filtros */}
+              <div className="faa-filters-card" style={{ margin: '16px 20px 14px' }}>
+                <div className="faa-filters-grid">
+                  {/* Busca por Nome */}
+                  <div className="faa-filter-field">
+                    <label>Busca por Nome</label>
+                    <div className="faa-input-search-wrap">
+                      <Search size={15} className="faa-search-icon" />
+                      <input
+                        type="text"
+                        placeholder="Pesquisar por filial..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="faa-input-search"
+                      />
+                      {searchTerm && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchTerm('')}
+                          className="faa-input-clear-btn"
+                          title="Limpar busca"
                         >
-                          <td>
-                            <div className="faa-loja-cell">
-                              <span className={`faa-badge-op ${isAssai ? 'assai' : 'atacadao'}`}>
-                                {isAssai ? 'ASSAÍ' : 'ATACADÃO'}
-                              </span>
-                              <span style={{ fontWeight: 600 }}>{r.loja}</span>
-                            </div>
-                          </td>
-                          <td 
-                            className="faa-num-cell bold"
-                            style={{
-                              cursor: 'pointer',
-                              color: r.quadro > 0 ? '#38bdf8' : '#fb7185',
-                              background: r.quadro === 0 ? 'rgba(251, 113, 133, 0.12)' : 'transparent',
-                              borderRadius: '4px',
-                              padding: '4px 6px'
-                            }}
-                            onClick={() => handleEditarQuadroRapido(r.loja, r.quadro)}
-                            title="Clique para editar/definir o número de pessoas (quadro) desta filial"
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Filtro Cliente */}
+                  <div className="faa-filter-field">
+                    <label>Cliente / Operação</label>
+                    <SearchableSelect
+                      options={[
+                        { value: "", label: "Todos os Clientes" },
+                        ...clientesOpcoes
+                      ]}
+                      value={filtroCliente}
+                      onChange={setFiltroCliente}
+                      placeholder="Todos os Clientes"
+                      multiple={true}
+                    />
+                  </div>
+
+                  {/* Filtro Supervisão */}
+                  <div className="faa-filter-field">
+                    <label>Supervisão</label>
+                    <SearchableSelect
+                      options={[
+                        { value: "", label: "Todas as Supervisões" },
+                        ...supervisoresOpcoes
+                      ]}
+                      value={filtroSupervisao}
+                      onChange={setFiltroSupervisao}
+                      placeholder="Todas as Supervisões"
+                      multiple={true}
+                    />
+                  </div>
+
+                  {/* Filtro Coordenação */}
+                  <div className="faa-filter-field">
+                    <label>Coordenação</label>
+                    <SearchableSelect
+                      options={[
+                        { value: "", label: "Todas as Coordenações" },
+                        ...coordenacoesOpcoes
+                      ]}
+                      value={filtroCoordenacao}
+                      onChange={setFiltroCoordenacao}
+                      placeholder="Todas as Coordenações"
+                      multiple={true}
+                    />
+                  </div>
+                </div>
+
+                <div className="faa-filters-footer">
+                  <div className="faa-filters-stats">
+                    <span>
+                      Mostrando <strong>{lojasFiltradas.length}</strong> de <strong>{resultadoProcessamento.resumo_lojas?.length}</strong> filiais
+                    </span>
+                    {temFiltroAtivo && (
+                      <span className="faa-filter-tag">
+                        <Filter size={11} /> Filtros ativos
+                      </span>
+                    )}
+                  </div>
+
+                  {temFiltroAtivo && (
+                    <button
+                      type="button"
+                      onClick={handleLimparFiltros}
+                      className="faa-btn-clear-filters"
+                    >
+                      <RotateCcw size={12} />
+                      Limpar Filtros
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* 3. Ações Existentes */}
+              <div className="faa-actions-bar" style={{ margin: '0 20px 14px' }}>
+                <div className="faa-actions-group-left">
+                  <button
+                    onClick={() => setIsQuadroModalOpen(true)}
+                    className="btn btn-secondary btn-sm"
+                    title="Configurar quadros de funcionários previstos por loja"
+                  >
+                    <Settings size={14} color="var(--accent-teal)" />
+                    <span>Configurar Quadros</span>
+                  </button>
+                  <button
+                    onClick={() => setIsDiariaModalOpen(true)}
+                    className="btn btn-secondary btn-sm"
+                    title="Lançar nova diária operacional avulsa"
+                  >
+                    <PlusCircle size={14} color="var(--accent-teal)" />
+                    <span>Lançar Diárias</span>
+                  </button>
+                  <button
+                    onClick={carregarUltimoFechamento}
+                    className="btn btn-secondary btn-sm"
+                    title="Recarregar dados do fechamento do servidor"
+                  >
+                    <RotateCcw size={14} />
+                    <span>Atualizar</span>
+                  </button>
+                </div>
+
+                <div className="faa-actions-group-right">
+                  <a
+                    href={api.getDownloadAtacadaoAssaiExcelUrl()}
+                    className="btn btn-secondary btn-sm"
+                    download
+                    title="Download da planilha oficial consolidada com 7 abas"
+                  >
+                    <FileSpreadsheet size={15} color="#34d399" />
+                    <span style={{ color: '#34d399', fontWeight: 600 }}>Baixar Excel (7 Abas)</span>
+                  </a>
+
+                  <a
+                    href={api.getDownloadAtacadaoAssaiZipUrl()}
+                    className="btn btn-secondary btn-sm"
+                    download
+                    title="Download do pacote ZIP contendo os relatórios em PDF de todas as lojas"
+                  >
+                    <FileArchive size={15} color="#38bdf8" />
+                    <span style={{ color: '#38bdf8', fontWeight: 600 }}>Baixar PDFs (ZIP)</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* 4. Tabela (10 linhas por página) */}
+              <div className="faa-table-container">
+                {paginatedLojas.length === 0 ? (
+                  <div className="faa-empty-state-box">
+                    <Search size={36} color="var(--text-muted)" />
+                    <div className="faa-empty-state-title">Nenhuma filial encontrada</div>
+                    <div className="faa-empty-state-desc">
+                      Nenhuma loja corresponde aos filtros selecionados. Tente ajustar os termos de pesquisa ou limpar os filtros.
+                    </div>
+                    {temFiltroAtivo && (
+                      <button
+                        type="button"
+                        onClick={handleLimparFiltros}
+                        className="btn btn-secondary btn-sm"
+                        style={{ marginTop: '6px' }}
+                      >
+                        <RotateCcw size={14} />
+                        Limpar Filtros
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <table className="faa-table">
+                    <thead>
+                      <tr>
+                        <th className="faa-th-sortable" onClick={() => handleSort('loja')}>
+                          <span className="faa-th-content">
+                            Loja / Filial
+                            {sortConfig.key === 'loja' ? (
+                              sortConfig.direction === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                            ) : (
+                              <ArrowUpDown size={11} style={{ opacity: 0.4 }} />
+                            )}
+                          </span>
+                        </th>
+                        <th style={{ textAlign: 'center' }} className="faa-th-sortable" onClick={() => handleSort('quadro')}>
+                          <span className="faa-th-content" style={{ justifyContent: 'center' }}>
+                            Quadro
+                            {sortConfig.key === 'quadro' ? (
+                              sortConfig.direction === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                            ) : (
+                              <ArrowUpDown size={11} style={{ opacity: 0.4 }} />
+                            )}
+                          </span>
+                        </th>
+                        <th style={{ textAlign: 'center' }} className="faa-th-sortable" onClick={() => handleSort('dias_uteis')}>
+                          <span className="faa-th-content" style={{ justifyContent: 'center' }}>
+                            Dias
+                            {sortConfig.key === 'dias_uteis' ? (
+                              sortConfig.direction === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                            ) : (
+                              <ArrowUpDown size={11} style={{ opacity: 0.4 }} />
+                            )}
+                          </span>
+                        </th>
+                        <th style={{ textAlign: 'center' }} className="faa-th-sortable" onClick={() => handleSort('total_esperado')}>
+                          <span className="faa-th-content" style={{ justifyContent: 'center' }}>
+                            Esperado
+                            {sortConfig.key === 'total_esperado' ? (
+                              sortConfig.direction === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                            ) : (
+                              <ArrowUpDown size={11} style={{ opacity: 0.4 }} />
+                            )}
+                          </span>
+                        </th>
+                        <th style={{ textAlign: 'center' }} className="faa-th-sortable" onClick={() => handleSort('presencas')}>
+                          <span className="faa-th-content" style={{ justifyContent: 'center' }}>
+                            Presenças
+                            {sortConfig.key === 'presencas' ? (
+                              sortConfig.direction === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                            ) : (
+                              <ArrowUpDown size={11} style={{ opacity: 0.4 }} />
+                            )}
+                          </span>
+                        </th>
+                        <th style={{ textAlign: 'center' }} className="faa-th-sortable" onClick={() => handleSort('folgas')}>
+                          <span className="faa-th-content" style={{ justifyContent: 'center' }}>
+                            Folgas
+                            {sortConfig.key === 'folgas' ? (
+                              sortConfig.direction === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                            ) : (
+                              <ArrowUpDown size={11} style={{ opacity: 0.4 }} />
+                            )}
+                          </span>
+                        </th>
+                        <th style={{ textAlign: 'center' }} className="faa-th-sortable" onClick={() => handleSort('outras_folgas')}>
+                          <span className="faa-th-content" style={{ justifyContent: 'center' }}>
+                            Outras
+                            {sortConfig.key === 'outras_folgas' ? (
+                              sortConfig.direction === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                            ) : (
+                              <ArrowUpDown size={11} style={{ opacity: 0.4 }} />
+                            )}
+                          </span>
+                        </th>
+                        <th style={{ textAlign: 'center' }} className="faa-th-sortable" onClick={() => handleSort('atestados')}>
+                          <span className="faa-th-content" style={{ justifyContent: 'center' }}>
+                            Atestados
+                            {sortConfig.key === 'atestados' ? (
+                              sortConfig.direction === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                            ) : (
+                              <ArrowUpDown size={11} style={{ opacity: 0.4 }} />
+                            )}
+                          </span>
+                        </th>
+                        <th style={{ textAlign: 'center' }} className="faa-th-sortable" onClick={() => handleSort('diarias')}>
+                          <span className="faa-th-content" style={{ justifyContent: 'center' }}>
+                            Diárias
+                            {sortConfig.key === 'diarias' ? (
+                              sortConfig.direction === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                            ) : (
+                              <ArrowUpDown size={11} style={{ opacity: 0.4 }} />
+                            )}
+                          </span>
+                        </th>
+                        <th style={{ textAlign: 'center', color: '#34d399' }} className="faa-th-sortable" onClick={() => handleSort('resultado')}>
+                          <span className="faa-th-content" style={{ justifyContent: 'center' }}>
+                            Resultado
+                            {sortConfig.key === 'resultado' ? (
+                              sortConfig.direction === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                            ) : (
+                              <ArrowUpDown size={11} style={{ opacity: 0.4 }} />
+                            )}
+                          </span>
+                        </th>
+                        <th style={{ textAlign: 'center', color: '#fbbf24' }} className="faa-th-sortable" onClick={() => handleSort('comparativo')}>
+                          <span className="faa-th-content" style={{ justifyContent: 'center' }}>
+                            Comparativo
+                            {sortConfig.key === 'comparativo' ? (
+                              sortConfig.direction === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                            ) : (
+                              <ArrowUpDown size={11} style={{ opacity: 0.4 }} />
+                            )}
+                          </span>
+                        </th>
+                        <th style={{ textAlign: 'center', color: '#fb7185' }} className="faa-th-sortable" onClick={() => handleSort('faltas_operacionais')}>
+                          <span className="faa-th-content" style={{ justifyContent: 'center' }}>
+                            Faltas RH
+                            {sortConfig.key === 'faltas_operacionais' ? (
+                              sortConfig.direction === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                            ) : (
+                              <ArrowUpDown size={11} style={{ opacity: 0.4 }} />
+                            )}
+                          </span>
+                        </th>
+                        <th style={{ textAlign: 'right' }}>HT Total</th>
+                        <th style={{ textAlign: 'center' }}>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedLojas.map((r, idx) => {
+                        const nomePrincipal = r.nome_referencia || r.loja;
+                        const isAssai = r.cliente === 'ASSAÍ' || nomePrincipal.toLowerCase().includes('assai') || nomePrincipal.toLowerCase().includes('sendas');
+                        const nomeRelatorioDiferente = r.loja_original && r.loja_original !== nomePrincipal;
+                        const isSelected = selectedLoja === r.loja || selectedLoja === r.nome_referencia || selectedLoja === r.loja_original;
+
+                        return (
+                          <tr
+                            key={idx}
+                            className={isSelected ? 'selected' : ''}
                           >
-                            <span style={{ marginRight: '3px' }}>{r.quadro}</span>
-                            <span style={{ fontSize: '0.65rem', opacity: 0.75 }}>✏️</span>
-                          </td>
-                          <td className="faa-num-cell">{r.dias_uteis}</td>
-                          <td className="faa-num-cell blue">{r.total_esperado}</td>
-                          <td className="faa-num-cell bold">{r.presencas}</td>
-                          <td className="faa-num-cell">{r.folgas}</td>
-                          <td className="faa-num-cell">{r.outras_folgas}</td>
-                          <td className="faa-num-cell">{r.atestados}</td>
-                          <td className="faa-num-cell">{r.diarias}</td>
-                          <td className="faa-num-cell emerald">{r.resultado}</td>
-                          <td className="faa-num-cell amber">{r.comparativo}</td>
-                          <td className="faa-num-cell rose">{r.faltas_operacionais}</td>
-                          <td className="faa-num-cell mono" style={{ textAlign: 'right' }}>{r.ht_formatted}</td>
-                          <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                            <a
-                              href={api.getDownloadLojaPdfUrl(r.loja)}
-                              className="faa-btn-icon"
-                              title={`Baixar Relatório PDF Oficial da loja ${r.loja}`}
-                              download
-                              style={{ color: '#38bdf8', marginRight: '6px', display: 'inline-flex', alignItems: 'center' }}
-                            >
-                              <FileText size={15} />
-                            </a>
-                            <button
-                              onClick={() => {
-                                setSelectedLoja(r.loja);
-                                setActiveTab('diario');
+                            <td>
+                              <div className="faa-loja-cell">
+                                <span className={`faa-badge-op ${isAssai ? 'assai' : 'atacadao'}`}>
+                                  {isAssai ? 'ASSAÍ' : 'ATACADÃO'}
+                                </span>
+                                <div>
+                                  <div style={{ fontWeight: 600 }}>{nomePrincipal}</div>
+                                  {nomeRelatorioDiferente && (
+                                    <div style={{ fontSize: '0.70rem', color: 'var(--text-muted)', marginTop: '1px' }}>
+                                      Relatório: {r.loja_original}
+                                    </div>
+                                  )}
+                                  {(r.supervisao || r.coordenacao) && (
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                      {r.supervisao && r.supervisao !== 'Não Informado' && <span>Sup: {r.supervisao}</span>}
+                                      {r.supervisao && r.supervisao !== 'Não Informado' && r.coordenacao && r.coordenacao !== 'Não Informado' && <span> • </span>}
+                                      {r.coordenacao && r.coordenacao !== 'Não Informado' && <span>Coord: {r.coordenacao}</span>}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td 
+                              className="faa-num-cell bold"
+                              style={{
+                                cursor: 'pointer',
+                                color: r.quadro > 0 ? '#38bdf8' : '#fb7185',
+                                background: r.quadro === 0 ? 'rgba(251, 113, 133, 0.12)' : 'transparent',
+                                borderRadius: '4px',
+                                padding: '4px 6px'
                               }}
-                              className="faa-btn-icon"
-                              title="Ver diário completo da loja"
+                              onClick={() => handleEditarQuadroRapido(r.loja, r.quadro, r.loja_original)}
+                              title="Clique para editar/definir o número de pessoas (quadro) desta filial"
                             >
-                              <ChevronRight size={16} />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                              <span style={{ marginRight: '3px' }}>{r.quadro}</span>
+                              <span style={{ fontSize: '0.65rem', opacity: 0.75 }}>✏️</span>
+                            </td>
+                            <td className="faa-num-cell">{r.dias_uteis}</td>
+                            <td className="faa-num-cell blue">{r.total_esperado}</td>
+                            <td 
+                              className="faa-num-cell bold"
+                              title={r.atestados_abonados > 0 ? `${r.atestados_abonados} atestado(s) abonado(s) contabilizado(s) em presença (Regra Assaí)` : undefined}
+                            >
+                              <span>{r.presencas}</span>
+                              {r.atestados_abonados > 0 && (
+                                <span 
+                                  style={{ fontSize: '0.65rem', color: '#38bdf8', marginLeft: '3px', fontWeight: 'bold' }} 
+                                  title={`${r.atestados_abonados} atestado(s) abonado(s) para presença (Regra Assaí)`}
+                                >
+                                  ★
+                                </span>
+                              )}
+                            </td>
+                            <td className="faa-num-cell">{r.folgas}</td>
+                            <td className="faa-num-cell">{r.outras_folgas}</td>
+                            <td 
+                              className="faa-num-cell"
+                              title={r.atestados_abonados > 0 ? `${r.atestados_abonados} de ${r.atestados} atestados foram abonados para presença` : undefined}
+                            >
+                              {r.atestados}
+                            </td>
+                            <td className="faa-num-cell">{r.diarias}</td>
+                            <td className="faa-num-cell emerald">{r.resultado}</td>
+                            <td className="faa-num-cell amber">{r.comparativo}</td>
+                            <td className="faa-num-cell rose">{r.faltas_operacionais}</td>
+                            <td className="faa-num-cell mono" style={{ textAlign: 'right' }}>{r.ht_formatted}</td>
+                            <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                              <a
+                                href={api.getDownloadLojaPdfUrl(r.loja_original || r.loja, resultadoProcessamento?.mes || mes, resultadoProcessamento?.ano || ano)}
+                                className="faa-btn-icon"
+                                title={`Baixar Relatório PDF Oficial da loja ${nomePrincipal}`}
+                                download
+                                style={{ color: '#38bdf8', marginRight: '6px', display: 'inline-flex', alignItems: 'center' }}
+                              >
+                                <FileText size={15} />
+                              </a>
+                              <button
+                                onClick={() => {
+                                  setSelectedLoja(r.loja);
+                                  setActiveTab('diario');
+                                }}
+                                className="faa-btn-icon"
+                                title="Ver diário completo da loja"
+                              >
+                                <ChevronRight size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              {/* 5. Paginação abaixo */}
+              <div className="faa-pagination-bar">
+                <div className="faa-pagination-info">
+                  {sortedLojas.length === 0 ? (
+                    <span>Nenhum registro para exibir</span>
+                  ) : (
+                    <span>
+                      Mostrando <strong>{(paginaAtual - 1) * ITENS_POR_PAGINA + 1}</strong> a <strong>{Math.min(paginaAtual * ITENS_POR_PAGINA, sortedLojas.length)}</strong> de <strong>{sortedLojas.length}</strong> filiais
+                      {sortedLojas.length !== (resultadoProcessamento.resumo_lojas?.length || 0) && (
+                        <span style={{ color: 'var(--text-muted)' }}> (filtrado de {resultadoProcessamento.resumo_lojas?.length} total)</span>
+                      )}
+                    </span>
+                  )}
+                </div>
+
+                <div className="faa-pagination-controls">
+                  <button
+                    type="button"
+                    onClick={() => setPaginaAtual(prev => Math.max(1, prev - 1))}
+                    disabled={paginaAtual <= 1}
+                    className="faa-pagination-btn"
+                    title="Ir para a página anterior"
+                  >
+                    <ChevronLeft size={16} />
+                    <span>Anterior</span>
+                  </button>
+
+                  <div className="faa-pagination-page-indicator">
+                    Página {paginaAtual} de {totalPaginas}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaginaAtual(prev => Math.min(totalPaginas, prev + 1))}
+                    disabled={paginaAtual >= totalPaginas}
+                    className="faa-pagination-btn"
+                    title="Ir para a próxima página"
+                  >
+                    <span>Próxima</span>
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -758,66 +1425,120 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
           {/* Aba 2: Painel de Inconsistências */}
           {activeTab === 'inconsistencias' && (
             <div className="faa-table-card">
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-card)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-card)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <AlertTriangle size={20} color="#fbbf24" />
                   <div>
                     <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      Inconsistências & Divergências Auditadas ({resultadoProcessamento.inconsistencias?.length})
+                      Inconsistências & Divergências Auditadas ({inconsistenciasFiltradas.length})
                     </h3>
                     <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                       Batidas sem espelho, pontos sem marcas, turnos especiais e marcações em férias. Nenhuma linha é descartada.
                     </p>
                   </div>
                 </div>
+
+                <div className="faa-input-search-wrap" style={{ width: '280px' }}>
+                  <Search size={14} className="faa-search-icon" />
+                  <input
+                    type="text"
+                    placeholder="Pesquisar inconsistência..."
+                    value={buscaInc}
+                    onChange={(e) => setBuscaInc(e.target.value)}
+                    className="faa-input-search"
+                  />
+                  {buscaInc && (
+                    <button
+                      type="button"
+                      onClick={() => setBuscaInc('')}
+                      className="faa-input-clear-btn"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {resultadoProcessamento.inconsistencias?.length === 0 ? (
+              {paginatedInconsistencias.length === 0 ? (
                 <div className="empty-box">
                   <CheckCircle2 size={36} color="#34d399" style={{ margin: '0 auto 12px' }} />
                   <p style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                    Nenhuma inconsistência ou ambiguidade encontrada nas bases!
+                    {buscaInc ? 'Nenhuma inconsistência encontrada para esta busca.' : 'Nenhuma inconsistência ou ambiguidade encontrada nas bases!'}
                   </p>
                 </div>
               ) : (
-                <div className="faa-table-container">
-                  <table className="faa-table">
-                    <thead>
-                      <tr>
-                        <th>Tipo de Ocorrência</th>
-                        <th>RE</th>
-                        <th>CPF</th>
-                        <th>Data</th>
-                        <th>Filial</th>
-                        <th>Detalhamento</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {resultadoProcessamento.inconsistencias.map((inc, i) => (
-                        <tr key={i}>
-                          <td>
-                            <span style={{
-                              padding: '2px 8px',
-                              borderRadius: '4px',
-                              fontSize: '0.72rem',
-                              fontWeight: 700,
-                              background: 'rgba(245, 158, 11, 0.14)',
-                              color: '#fbbf24',
-                              border: '1px solid rgba(245, 158, 11, 0.3)'
-                            }}>
-                              {inc.tipo}
-                            </span>
-                          </td>
-                          <td className="faa-num-cell mono">{inc.re || '-'}</td>
-                          <td className="faa-num-cell mono">{inc.cpf || '-'}</td>
-                          <td className="faa-num-cell mono">{inc.data || '-'}</td>
-                          <td style={{ fontWeight: 600 }}>{inc.loja || '-'}</td>
-                          <td style={{ color: 'var(--text-secondary)' }}>{inc.detalhe}</td>
+                <>
+                  <div className="faa-table-container">
+                    <table className="faa-table">
+                      <thead>
+                        <tr>
+                          <th>Tipo de Ocorrência</th>
+                          <th>RE</th>
+                          <th>CPF</th>
+                          <th>Data</th>
+                          <th>Filial</th>
+                          <th>Detalhamento</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {paginatedInconsistencias.map((inc, i) => (
+                          <tr key={i}>
+                            <td>
+                              <span style={{
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                background: 'rgba(245, 158, 11, 0.14)',
+                                color: '#fbbf24',
+                                border: '1px solid rgba(245, 158, 11, 0.3)'
+                              }}>
+                                {inc.tipo}
+                              </span>
+                            </td>
+                            <td className="faa-num-cell mono">{inc.re || '-'}</td>
+                            <td className="faa-num-cell mono">{inc.cpf || '-'}</td>
+                            <td className="faa-num-cell mono">{inc.data || '-'}</td>
+                            <td style={{ fontWeight: 600 }}>{inc.loja || '-'}</td>
+                            <td style={{ color: 'var(--text-secondary)' }}>{inc.detalhe}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="faa-pagination-bar">
+                    <div className="faa-pagination-info">
+                      Mostrando <strong>{(paginaInc - 1) * ITENS_POR_PAGINA + 1}</strong> a <strong>{Math.min(paginaInc * ITENS_POR_PAGINA, inconsistenciasFiltradas.length)}</strong> de <strong>{inconsistenciasFiltradas.length}</strong> ocorrências
+                    </div>
+
+                    <div className="faa-pagination-controls">
+                      <button
+                        type="button"
+                        onClick={() => setPaginaInc(prev => Math.max(1, prev - 1))}
+                        disabled={paginaInc <= 1}
+                        className="faa-pagination-btn"
+                      >
+                        <ChevronLeft size={16} />
+                        <span>Anterior</span>
+                      </button>
+
+                      <div className="faa-pagination-page-indicator">
+                        Página {paginaInc} de {totalPaginasInc}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setPaginaInc(prev => Math.min(totalPaginasInc, prev + 1))}
+                        disabled={paginaInc >= totalPaginasInc}
+                        className="faa-pagination-btn"
+                      >
+                        <span>Próxima</span>
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           )}
@@ -829,7 +1550,7 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
                 <div>
                   <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Calendar size={18} color="var(--accent-teal)" />
-                    Detalhamento Diário — {selectedLoja || 'Selecione uma Loja'}
+                    Detalhamento Diário — {selectedLojaObj?.nome_referencia || selectedLoja || 'Selecione uma Loja'}
                   </h3>
                   <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                     Espelho oficial das 11 colunas dia a dia do fechamento
@@ -842,9 +1563,9 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
                     value={selectedLoja || ''}
                     onChange={(e) => setSelectedLoja(e.target.value)}
                     style={{
-                      background: '#1c1c1c',
+                      background: 'var(--bg-card)',
                       color: 'var(--text-primary)',
-                      border: '1px solid #333',
+                      border: '1px solid var(--border-card)',
                       borderRadius: '6px',
                       padding: '6px 12px',
                       fontSize: '0.825rem',
@@ -852,9 +1573,14 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
                       cursor: 'pointer'
                     }}
                   >
-                    {resultadoProcessamento.resumo_lojas?.map((l, i) => (
-                      <option key={i} value={l.loja}>{l.loja}</option>
-                    ))}
+                    {resultadoProcessamento.resumo_lojas?.map((l, i) => {
+                      const display = l.nome_referencia || l.loja;
+                      return (
+                        <option key={i} value={l.loja}>
+                          {display}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               </div>
@@ -878,14 +1604,32 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {diarioLojaSelecionada.map((dia, idx) => (
+                    {paginatedDiario.map((dia, idx) => (
                       <tr key={idx}>
                         <td className="faa-num-cell mono">{dia.data}</td>
                         <td className="faa-num-cell" style={{ color: 'var(--text-secondary)' }}>{dia.dia_semana}</td>
-                        <td className="faa-num-cell bold">{dia.presenca}</td>
+                        <td 
+                          className="faa-num-cell bold"
+                          title={dia.atestados_abonados > 0 ? `${dia.atestados_abonados} atestado(s) abonado(s) para presença neste dia (Regra Assaí)` : undefined}
+                        >
+                          <span>{dia.presenca}</span>
+                          {dia.atestados_abonados > 0 && (
+                            <span 
+                              style={{ fontSize: '0.65rem', color: '#38bdf8', marginLeft: '3px', fontWeight: 'bold' }} 
+                              title={`${dia.atestados_abonados} atestado(s) abonado(s) para presença neste dia (Regra Assaí)`}
+                            >
+                              ★
+                            </span>
+                          )}
+                        </td>
                         <td className="faa-num-cell">{dia.folga}</td>
                         <td className="faa-num-cell">{dia.outras_folgas}</td>
-                        <td className="faa-num-cell">{dia.atestado}</td>
+                        <td 
+                          className="faa-num-cell"
+                          title={dia.atestados_abonados > 0 ? `${dia.atestados_abonados} de ${dia.atestado} atestado(s) abonado(s) para presença neste dia` : undefined}
+                        >
+                          {dia.atestado}
+                        </td>
                         <td className="faa-num-cell">{dia.diarias}</td>
                         <td className="faa-num-cell">{dia.hec_dia}</td>
                         <td className="faa-num-cell emerald">{dia.resultado}</td>
@@ -896,6 +1640,81 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              <div className="faa-pagination-bar">
+                <div className="faa-pagination-info">
+                  Mostrando <strong>{(paginaDiario - 1) * ITENS_POR_PAGINA + 1}</strong> a <strong>{Math.min(paginaDiario * ITENS_POR_PAGINA, diarioLojaSelecionada.length)}</strong> de <strong>{diarioLojaSelecionada.length}</strong> dias apurados
+                </div>
+
+                <div className="faa-pagination-controls">
+                  <button
+                    type="button"
+                    onClick={() => setPaginaDiario(prev => Math.max(1, prev - 1))}
+                    disabled={paginaDiario <= 1}
+                    className="faa-pagination-btn"
+                  >
+                    <ChevronLeft size={16} />
+                    <span>Anterior</span>
+                  </button>
+
+                  <div className="faa-pagination-page-indicator">
+                    Página {paginaDiario} de {totalPaginasDiario}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaginaDiario(prev => Math.min(totalPaginasDiario, prev + 1))}
+                    disabled={paginaDiario >= totalPaginasDiario}
+                    className="faa-pagination-btn"
+                  >
+                    <span>Próxima</span>
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div style={{
+          background: 'var(--bg-card)',
+          border: '1px dashed var(--border-card)',
+          borderRadius: '12px',
+          padding: '36px 24px',
+          marginBottom: '24px',
+          textAlign: 'center'
+        }}>
+          <Info size={40} style={{ color: 'var(--accent-teal)', marginBottom: '14px', opacity: 0.9 }} />
+          <h4 style={{ margin: '0 0 8px 0', fontSize: '1.15rem', color: 'var(--text-main)', fontWeight: 600 }}>
+            Nenhum fechamento salvo para {MESES.find(m => m.val === mes)?.nome || mes}/{ano}
+          </h4>
+          <p style={{ margin: '0 auto 18px auto', fontSize: '0.88rem', color: 'var(--text-muted)', maxWidth: '580px', lineHeight: 1.5 }}>
+            Para gerar e consolidar o fechamento deste período, anexe os arquivos de PunchReport e Espelhos acima e clique em <strong>"Iniciar Processamento"</strong>.
+          </p>
+
+          {mesesDisponiveis && mesesDisponiveis.length > 0 && (
+            <div style={{ marginTop: '20px', paddingTop: '18px', borderTop: '1px solid var(--border-card)' }}>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'block', marginBottom: '12px', fontWeight: 500 }}>
+                Ou selecione abaixo um mês com fechamento gravado para visualização imediata:
+              </span>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                {mesesDisponiveis.map(m => (
+                  <button
+                    key={`${m.mes}-${m.ano}`}
+                    type="button"
+                    onClick={() => {
+                      setMes(m.mes);
+                      setAno(m.ano);
+                    }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.82rem', padding: '7px 16px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    title={`Visualizar fechamento gravado de ${m.label}`}
+                  >
+                    <Calendar size={14} style={{ color: 'var(--accent-teal)' }} />
+                    <span>{m.label} ({m.total_lojas} filiais)</span>
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -1070,10 +1889,13 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
                   />
                 </div>
 
-                <div className="faa-list-box" style={{ maxHeight: '320px', marginTop: 0 }}>
-                  {quadrosList
-                    .filter(q => q.nome_loja.toLowerCase().includes(filtroBuscaQuadro.toLowerCase()))
-                    .map((q) => {
+                <div className="faa-list-box" style={{ maxHeight: '360px', marginTop: 0 }}>
+                  {paginatedQuadros.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                      Nenhuma filial encontrada com esse nome.
+                    </div>
+                  ) : (
+                    paginatedQuadros.map((q) => {
                       const isAssai = q.operacao === 'ASSAI' || q.nome_loja.toLowerCase().includes('assai');
                       return (
                         <div key={q.id} className="faa-list-item">
@@ -1090,7 +1912,42 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
                           </span>
                         </div>
                       );
-                    })}
+                    })
+                  )}
+                </div>
+
+                <div className="faa-pagination-bar" style={{ padding: '10px 0 0', marginTop: '10px' }}>
+                  <div className="faa-pagination-info" style={{ fontSize: '0.75rem' }}>
+                    Mostrando <strong>{(paginaQuadros - 1) * ITENS_POR_PAGINA + 1}</strong> a <strong>{Math.min(paginaQuadros * ITENS_POR_PAGINA, quadrosFiltrados.length)}</strong> de <strong>{quadrosFiltrados.length}</strong>
+                  </div>
+
+                  <div className="faa-pagination-controls">
+                    <button
+                      type="button"
+                      onClick={() => setPaginaQuadros(prev => Math.max(1, prev - 1))}
+                      disabled={paginaQuadros <= 1}
+                      className="faa-pagination-btn"
+                      style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                    >
+                      <ChevronLeft size={14} />
+                      <span>Anterior</span>
+                    </button>
+
+                    <div className="faa-pagination-page-indicator" style={{ fontSize: '0.75rem', padding: '2px 8px', minWidth: '70px' }}>
+                      {paginaQuadros} / {totalPaginasQuadros}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setPaginaQuadros(prev => Math.min(totalPaginasQuadros, prev + 1))}
+                      disabled={paginaQuadros >= totalPaginasQuadros}
+                      className="faa-pagination-btn"
+                      style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                    >
+                      <span>Próxima</span>
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

@@ -33,12 +33,98 @@ def calculate_business_days(ano: int, mes: int) -> int:
     return business_days
 
 
+def is_assai_store(loja_name: Any) -> bool:
+    """Verifica se a loja/filial pertence à rede Assaí / Sendas."""
+    if not loja_name:
+        return False
+    l = str(loja_name).lower()
+    return 'assai' in l or 'sendas' in l
+
+
+def apply_assai_atestado_abono(df_classified: pd.DataFrame) -> pd.DataFrame:
+    """Aplica a regra de negócio exclusiva do cliente Assaí:
+
+    - Cada colaborador do Assaí tem direito a 1 abono de atestado médico por mês.
+    - Se o colaborador tiver mais de 1 dia de atestado no mês, apenas o primeiro
+      dia (cronologicamente) é abonado e contado para presença; os demais continuam
+      apenas como registro de atestado (sem contar para presença).
+    - Para clientes Atacadão (ou outras redes), nenhum atestado é abonado.
+    - No relatório diário e resumo, os atestados continuam sendo exibidos normalmente.
+    """
+    df = df_classified.copy()
+    if df.empty:
+        df['atestado_abonado'] = []
+        return df
+
+    import numpy as np
+
+    # Inicializa coluna de controle de abono
+    df['atestado_abonado'] = False
+
+    # Identifica chave única do colaborador (RE ou CPF ou Nome)
+    re_s = df['re_clean'].fillna('').astype(str).str.strip()
+    cpf_s = df['cpf_clean'].fillna('').astype(str).str.strip()
+    nome_s = df['Nome'].fillna('').astype(str).str.strip() if 'Nome' in df.columns else pd.Series('', index=df.index)
+
+    colab_key = re_s.copy()
+    empty_re = (colab_key == '') | (colab_key == 'nan')
+    colab_key = np.where(empty_re, cpf_s, colab_key)
+    empty_both = (colab_key == '') | (colab_key == 'nan')
+    colab_key = np.where(empty_both, nome_s, colab_key)
+    df['colab_key'] = colab_key
+
+    # Verifica se a loja é Assaí (verifica loja_clean e se existir loja_fechamento/loja_original)
+    is_assai_mask = df['loja_clean'].apply(is_assai_store)
+    if 'loja_fechamento' in df.columns:
+        is_assai_mask = is_assai_mask | df['loja_fechamento'].apply(is_assai_store)
+    if 'loja_original' in df.columns:
+        is_assai_mask = is_assai_mask | df['loja_original'].apply(is_assai_store)
+
+    # Filtra registros com ATESTADO_MEDICO no Assaí
+    is_atestado = df['final_status'] == 'ATESTADO_MEDICO'
+    mask_assai_atestado = is_assai_mask & is_atestado
+
+    if not mask_assai_atestado.any():
+        return df
+
+    # Obtém registros de atestados do Assaí ordenados por data cronológica
+    df_assai_atestados = df[mask_assai_atestado].copy()
+    df_assai_atestados.sort_values(by=['colab_key', 'data_parsed'], inplace=True)
+
+    # Identifica o primeiro dia de atestado para cada colaborador no mês
+    abonado_indices = []
+    for colab, group in df_assai_atestados.groupby('colab_key', sort=False):
+        primeira_data = group['data_parsed'].iloc[0]
+        idx_primeiro_dia = group[group['data_parsed'] == primeira_data].index
+        abonado_indices.extend(idx_primeiro_dia)
+
+    # Marca as linhas abonadas
+    df.loc[abonado_indices, 'atestado_abonado'] = True
+
+    # Atualiza o status_motivo para auditoria transparente
+    df.loc[abonado_indices, 'status_motivo'] = (
+        'Atestado Médico cadastrado no Controle de Ponto (Abonado para Presença — Regra Assaí: 1 abono/mês)'
+    )
+
+    # Para atestados excedentes no Assaí (segundo dia em diante do mesmo colaborador):
+    excedentes_mask = mask_assai_atestado & (~df['atestado_abonado'])
+    df.loc[excedentes_mask, 'status_motivo'] = (
+        'Atestado Médico cadastrado no Controle de Ponto (Não abonado — Limite de 1 abono/mês por colaborador já utilizado)'
+    )
+
+    return df
+
+
 def classify_daily_records(df_matched: pd.DataFrame) -> pd.DataFrame:
-    """Classifica cada registro de colaborador/dia na matriz de decisão formalizada de forma vetorizada."""
+    """Classifica cada registro de colaborador/dia na matriz de decisão formalizada de forma vetorizada.
+    
+    Aplica também a regra de abono de atestados exclusiva do cliente Assaí (1 abono/mês por colaborador).
+    """
     df = df_matched.copy()
     if df.empty:
         df['final_status'] = []
         df['status_motivo'] = []
+        df['atestado_abonado'] = []
         return df
 
     import numpy as np
@@ -76,6 +162,9 @@ def classify_daily_records(df_matched: pd.DataFrame) -> pd.DataFrame:
     df['final_status'] = np.select(conditions, status_choices, default='FALTA_OPERACIONAL')
     df['status_motivo'] = np.select(conditions, motivo_choices, default='Colaborador escalado que não compareceu ao posto sem justificativa')
 
+    # Aplica regra de abono de atestado para colaboradores do Assaí
+    df = apply_assai_atestado_abono(df)
+
     return df
 
 
@@ -110,6 +199,8 @@ def aggregate_store_daily(
     """Agrega os registros diários por loja e data, calculando os indicadores diários.
 
     Aplica deduplicação: cada colaborador gera no máximo 1 presença no dia.
+    No cliente Assaí, 1 dia de atestado médico por mês é abonado e contabilizado
+    como presença, sem remover o registro de atestado da apuração.
     """
     df = apply_shared_groups(df_classified, shared_groups)
 
@@ -118,8 +209,20 @@ def aggregate_store_daily(
     df['loja_fechamento'] = df['loja_fechamento'].fillna('').astype(str).str.strip()
     df.loc[df['loja_fechamento'] == '', 'loja_fechamento'] = 'SEM FILIAL DEFINIDA'
 
-    # Deduplicação diária por colaborador para presenças e folgas
-    # Se colaborador tem múltiplos registros no mesmo dia com PRESENCA, conta 1 presença
+    import numpy as np
+
+    # Garante coluna colab_key para deduplicação segura
+    if 'colab_key' not in df.columns:
+        re_s = df['re_clean'].fillna('').astype(str).str.strip()
+        cpf_s = df['cpf_clean'].fillna('').astype(str).str.strip()
+        nome_s = df['Nome'].fillna('').astype(str).str.strip() if 'Nome' in df.columns else pd.Series('', index=df.index)
+        colab_key = re_s.copy()
+        empty_re = (colab_key == '') | (colab_key == 'nan')
+        colab_key = np.where(empty_re, cpf_s, colab_key)
+        empty_both = (colab_key == '') | (colab_key == 'nan')
+        colab_key = np.where(empty_both, nome_s, colab_key)
+        df['colab_key'] = colab_key
+
     records = []
     grouped = df.groupby(['loja_fechamento', 'data_parsed'])
 
@@ -128,16 +231,25 @@ def aggregate_store_daily(
             continue
 
         # Colaboradores únicos por status
-        colabs_presenca = group[group['final_status'] == 'PRESENCA']['re_clean'].unique()
-        colabs_folga = group[group['final_status'] == 'FOLGA_REGULAR']['re_clean'].unique()
-        colabs_outras = group[group['final_status'] == 'OUTRAS_FOLGAS']['re_clean'].unique()
-        colabs_atestado = group[group['final_status'] == 'ATESTADO_MEDICO']['re_clean'].unique()
-        colabs_falta = group[group['final_status'] == 'FALTA_OPERACIONAL']['re_clean'].unique()
+        colabs_presenca_base = [x for x in group[group['final_status'] == 'PRESENCA']['colab_key'].unique() if x]
+        colabs_folga = [x for x in group[group['final_status'] == 'FOLGA_REGULAR']['colab_key'].unique() if x]
+        colabs_outras = [x for x in group[group['final_status'] == 'OUTRAS_FOLGAS']['colab_key'].unique() if x]
+        colabs_atestado = [x for x in group[group['final_status'] == 'ATESTADO_MEDICO']['colab_key'].unique() if x]
+        colabs_falta = [x for x in group[group['final_status'] == 'FALTA_OPERACIONAL']['colab_key'].unique() if x]
 
-        presenca_count = len(colabs_presenca)
+        # Colaboradores com atestado abonado no dia (Regra Assaí)
+        colabs_abonados = []
+        if 'atestado_abonado' in group.columns:
+            colabs_abonados = [x for x in group[group['atestado_abonado'] == True]['colab_key'].unique() if x]
+
+        # Deduplicação diária: presenças físicas + atestados abonados
+        colabs_presenca_total = set(colabs_presenca_base) | set(colabs_abonados)
+
+        presenca_count = len(colabs_presenca_total)
         folga_count = len(colabs_folga)
         outras_folgas_count = len(colabs_outras)
         atestado_count = len(colabs_atestado)
+        atestados_abonados_count = len(colabs_abonados)
         falta_operacional_count = len(colabs_falta)
 
         # Diárias (sistema TOTVS + manuais complementares)
@@ -151,7 +263,6 @@ def aggregate_store_daily(
                     if d_date == data_val and clean_store_text(d_loja) == l_clean:
                         diarias_count += cnt
 
-
         # Horas
         ht_sec = int(group['ht_seconds'].sum())
         hec_sec = int(group['hec_seconds'].sum())
@@ -164,7 +275,7 @@ def aggregate_store_daily(
             hec_dia = hec_minutes // hec_minutos_limite
             saldo_hec_min = hec_minutes % hec_minutos_limite
 
-        # Resultado do dia
+        # Resultado do dia (presenças reais/abonadas + outras folgas + diárias + HEC)
         resultado_dia = presenca_count + outras_folgas_count + diarias_count + hec_dia
 
         records.append({
@@ -175,6 +286,7 @@ def aggregate_store_daily(
             'folga': folga_count,
             'outras_folgas': outras_folgas_count,
             'atestado': atestado_count,
+            'atestados_abonados': atestados_abonados_count,
             'diarias': diarias_count,
             'hec_dia': hec_dia,
             'resultado': resultado_dia,
@@ -331,6 +443,7 @@ def calculate_monthly_summary(
         folgas = int(group['folga'].sum())
         outras_folgas = int(group['outras_folgas'].sum())
         atestados = int(group['atestado'].sum())
+        atestados_abonados = int(group['atestados_abonados'].sum()) if 'atestados_abonados' in group.columns else 0
         diarias = int(group['diarias'].sum())
         hec_dias = int(group['hec_dia'].sum())
         resultado = int(group['resultado'].sum())
@@ -350,6 +463,7 @@ def calculate_monthly_summary(
             'folgas': folgas,
             'outras_folgas': outras_folgas,
             'atestados': atestados,
+            'atestados_abonados': atestados_abonados,
             'diarias': diarias,
             'hec_dia': hec_dias,
             'resultado': resultado,

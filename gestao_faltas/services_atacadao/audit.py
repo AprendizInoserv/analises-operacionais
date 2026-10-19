@@ -23,6 +23,7 @@ def build_colaborador_audit_trail(df_classified: pd.DataFrame) -> pd.DataFrame:
         'matching_level': 'Nível do Matching',
         'matching_status': 'Status do Matching',
         'final_status': 'Classificação Final',
+        'atestado_abonado': 'Atestado Abonado (Assaí)',
         'status_motivo': 'Motivo da Classificação',
         'ht_seconds': 'HT (segundos)',
         'hec_seconds': 'HEC (segundos)',
@@ -32,6 +33,8 @@ def build_colaborador_audit_trail(df_classified: pd.DataFrame) -> pd.DataFrame:
     existing_cols = [c for c in columns_map.keys() if c in df_classified.columns]
     audit_df = df_classified[existing_cols].copy()
     audit_df.rename(columns=columns_map, inplace=True)
+    if 'Atestado Abonado (Assaí)' in audit_df.columns:
+        audit_df['Atestado Abonado (Assaí)'] = audit_df['Atestado Abonado (Assaí)'].map({True: 'Sim', False: 'Não'}).fillna('Não')
     return audit_df
 
 

@@ -1,11 +1,13 @@
 """Views da API REST para o Fechamento Atacadão e Assaí."""
 import os
+import re
 import json
 import pickle
+import unicodedata
 import tempfile
 import urllib.parse
 from datetime import date, datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Tuple
 import pandas as pd
 from django.conf import settings
 from django.http import FileResponse, HttpResponse
@@ -60,6 +62,57 @@ def restore_last_processed_if_needed() -> bool:
     return False
 
 
+def restore_last_processed_from_dados(dados: dict) -> bool:
+    """Restaura a sessão em memória _LAST_PROCESSED a partir dos dados serializados de um fechamento histórico."""
+    global _LAST_PROCESSED
+    if not dados:
+        return False
+    try:
+        summary_list = dados.get('resumo_lojas', [])
+        daily_list = dados.get('amostra_diaria', [])
+        inc_list = dados.get('inconsistencias', [])
+
+        _LAST_PROCESSED = {
+            'summary': pd.DataFrame(summary_list) if summary_list else pd.DataFrame(),
+            'daily': pd.DataFrame(daily_list) if daily_list else pd.DataFrame(),
+            'inc': pd.DataFrame(inc_list) if inc_list else pd.DataFrame(),
+            'audit': pd.DataFrame(),
+            'marcas': pd.DataFrame(),
+            'ponto': pd.DataFrame(),
+            'classified': pd.DataFrame(),
+            'mes': dados.get('mes', 8),
+            'ano': dados.get('ano', 2026),
+            'hec_minutos': dados.get('hec_minutos', 0),
+        }
+        return True
+    except Exception as e:
+        print(f"Aviso ao restaurar _LAST_PROCESSED a partir de dados históricos: {e}")
+        return False
+
+
+def get_meses_disponiveis() -> List[Dict[str, int]]:
+    """Retorna lista ordenada dos meses/anos com fechamentos persistidos no histórico ou cache."""
+    disponiveis = set()
+    try:
+        from .models import HistoricoProcessamento
+        for h in HistoricoProcessamento.objects.filter(dados_json__isnull=False).values('mes_referencia', 'ano_referencia'):
+            disponiveis.add((h['mes_referencia'], h['ano_referencia']))
+    except Exception as e_h:
+        print(f"Aviso ao listar meses disponíveis do histórico: {e_h}")
+
+    if os.path.exists(CACHE_JSON_PATH):
+        try:
+            with open(CACHE_JSON_PATH, 'r', encoding='utf-8') as f:
+                c = json.load(f)
+                if c.get('mes') and c.get('ano'):
+                    disponiveis.add((int(c['mes']), int(c['ano'])))
+        except Exception:
+            pass
+
+    sorted_items = sorted(list(disponiveis), key=lambda x: (x[1], x[0]), reverse=True)
+    return [{'mes': m, 'ano': a} for m, a in sorted_items]
+
+
 def _serialize_row_dates(rows):
     """Garante que campos de data em dicionários sejam convertidos para strings ISO."""
     clean_rows = []
@@ -72,6 +125,178 @@ def _serialize_row_dates(rows):
                 item[k] = None
         clean_rows.append(item)
     return clean_rows
+
+
+def _clean_str_for_matching(s: Any) -> str:
+    """Normaliza texto para cruzamento insensível a acentos, pontuações e maiúsculas/minúsculas."""
+    if not s:
+        return ''
+    s = unicodedata.normalize('NFKD', str(s)).encode('ASCII', 'ignore').decode('ASCII').upper().strip()
+    s = re.sub(r'[^A-Z0-9]', ' ', s)
+    return ' '.join(s.split())
+
+
+def build_store_lookup() -> List[Dict[str, Any]]:
+    """
+    Constrói a tabela de consulta em memória das lojas oficiais cadastradas (lojas.models.Loja),
+    indexando todas as integrações configuradas:
+    - nome_referencia (nome oficial da base de lojas)
+    - nome_geovictoria
+    - nome_totvs
+    - nome_financeiro
+    - nome_findme
+    - nome_metricas
+    - codigo_loja
+    """
+    from lojas.models import Loja
+    lojas_db = list(Loja.objects.select_related('coordenador', 'supervisor').all())
+    db_lookup = []
+    for l in lojas_db:
+        integracoes_limpas = []
+        integracoes_core = []
+        for field in [l.nome_referencia, l.nome_geovictoria, l.nome_totvs, l.nome_financeiro, l.nome_findme, l.nome_metricas]:
+            if field:
+                norm_f = _clean_str_for_matching(field)
+                if norm_f:
+                    integracoes_limpas.append(norm_f)
+                    core_f = re.sub(r'^(VINICIUS|BRUNA|SENDAS)\s+', '', norm_f).strip()
+                    if core_f and core_f != norm_f:
+                        integracoes_core.append(core_f)
+
+        db_lookup.append({
+            'loja_obj': l,
+            'nome_referencia': l.nome_referencia,
+            'cliente': (l.cliente or '').upper(),
+            'coordenador': l.coordenador.nome if l.coordenador else '',
+            'supervisor': l.supervisor.nome if l.supervisor else '',
+            'integrations': integracoes_limpas,
+            'integrations_core': integracoes_core,
+            'codigo': str(l.codigo_loja) if l.codigo_loja else '',
+        })
+    return db_lookup
+
+
+def find_store_match(report_name: str, db_lookup: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """
+    Localiza a loja oficial correspondente ao nome vindo do relatório/planilha através das integrações da base.
+    Se não houver correspondência, retorna None.
+    """
+    if not report_name:
+        return None
+    n_rep = _clean_str_for_matching(report_name)
+    if not n_rep:
+        return None
+    n_rep_core = re.sub(r'^(VINICIUS|BRUNA|SENDAS)\s+', '', n_rep).strip()
+
+    # Pass 1: Correspondência exata em qualquer integração cadastrada ou nome de referência
+    for item in db_lookup:
+        if n_rep in item['integrations']:
+            return item
+
+    # Pass 2: Correspondência exata ignorando prefixo comum de supervisor (ex: 'Vinicius - ')
+    for item in db_lookup:
+        if n_rep in item['integrations_core'] or (n_rep_core and (n_rep_core in item['integrations'] or n_rep_core in item['integrations_core'])):
+            return item
+
+    # Pass 3: Contenção de string (mínimo de 6 caracteres para evitar falsos positivos)
+    best_item = None
+    best_len = 0
+    for item in db_lookup:
+        for cand in item['integrations'] + item['integrations_core']:
+            if len(n_rep) >= 6 and len(cand) >= 6:
+                if n_rep == cand or n_rep in cand or cand in n_rep:
+                    c_len = min(len(n_rep), len(cand))
+                    if c_len > best_len:
+                        best_len = c_len
+                        best_item = item
+
+    return best_item
+
+
+def enrich_resumo_lojas(resumo_lojas: list) -> list:
+    """
+    Enriquece a lista resumo_lojas relacionando o nome que vem do relatório com a base oficial de lojas
+    a partir das integrações de cada loja (nome_geovictoria, nome_totvs, nome_financeiro, nome_findme, etc.):
+    - Se encontrar correspondência na base, define 'loja' e 'nome_referencia' com o nome oficial da base (Loja.nome_referencia).
+    - Caso o nome esteja diferente ou não conste na base, mantém o nome exato que vem do relatório.
+    - Preserva o nome do relatório em 'loja_original'.
+    - Vincula cliente, coordenação e supervisão.
+    """
+    if not resumo_lojas:
+        return []
+    try:
+        db_lookup = build_store_lookup()
+        enriched = []
+        for row in resumo_lojas:
+            r = dict(row)
+            loja_original = r.get('loja_original') or r.get('loja') or ''
+            matched = find_store_match(loja_original, db_lookup)
+
+            if matched:
+                nome_oficial = matched['nome_referencia']
+                r['loja'] = nome_oficial
+                r['nome_referencia'] = nome_oficial
+                r['loja_original'] = loja_original
+
+                if 'ASSA' in matched['cliente'] or 'SENDAS' in matched['cliente']:
+                    cli = 'ASSAÍ'
+                elif 'ATACAD' in matched['cliente']:
+                    cli = 'ATACADÃO'
+                elif 'ASSAI' in loja_original.upper() or 'SENDAS' in loja_original.upper():
+                    cli = 'ASSAÍ'
+                else:
+                    cli = 'ATACADÃO'
+
+                coord = matched['coordenador'] if matched['coordenador'] else 'Não Informado'
+                sup = matched['supervisor'] if matched['supervisor'] else 'Não Informado'
+            else:
+                # Caso o nome esteja diferente ou não conste na base, mantém o nome que vem do relatório
+                r['loja'] = loja_original
+                r['nome_referencia'] = loja_original
+                r['loja_original'] = loja_original
+                cli = 'ASSAÍ' if ('assai' in loja_original.lower() or 'sendas' in loja_original.lower()) else 'ATACADÃO'
+                coord = r.get('coordenacao') or 'Não Informado'
+                sup = r.get('supervisao') or 'Não Informado'
+
+            r['cliente'] = cli
+            r['coordenacao'] = coord
+            r['supervisao'] = sup
+            enriched.append(r)
+        return enriched
+    except Exception as e_enrich:
+        print(f"Aviso ao enriquecer resumo_lojas com dados de Loja: {e_enrich}")
+        for r in resumo_lojas:
+            loja_orig = r.get('loja_original') or r.get('loja', '')
+            r.setdefault('loja_original', loja_orig)
+            r.setdefault('nome_referencia', r.get('loja', loja_orig))
+            if 'cliente' not in r:
+                r['cliente'] = 'ASSAÍ' if ('assai' in loja_orig.lower() or 'sendas' in loja_orig.lower()) else 'ATACADÃO'
+            if 'coordenacao' not in r:
+                r['coordenacao'] = 'Não Informado'
+            if 'supervisao' not in r:
+                r['supervisao'] = 'Não Informado'
+        return resumo_lojas
+
+
+def enrich_amostra_diaria(amostra_diaria: list, store_map: Optional[Dict[str, str]] = None) -> list:
+    """
+    Garante que os registros diários de amostra_diaria tenham 'loja', 'nome_referencia' e 'loja_original'
+    alinhados com o mapeamento da base de lojas oficial.
+    """
+    if not amostra_diaria:
+        return []
+    if store_map is None:
+        store_map = {}
+    enriched = []
+    for item in amostra_diaria:
+        d = dict(item)
+        orig = d.get('loja_original') or d.get('loja', '')
+        oficial = store_map.get(orig, orig)
+        d['loja'] = oficial
+        d['nome_referencia'] = oficial
+        d['loja_original'] = orig
+        enriched.append(d)
+    return enriched
 
 
 def get_fixed_quadros_map() -> Dict[str, int]:
@@ -200,6 +425,17 @@ def recalculate_active_closure_summary() -> Optional[Dict[str, Any]]:
     ano = _LAST_PROCESSED.get('ano', 2026)
     hec_minutos = _LAST_PROCESSED.get('hec_minutos', 0)
 
+    # Re-agrega df_daily a partir de classified se disponível para garantir abonos e diárias atualizadas
+    if 'classified' in _LAST_PROCESSED and isinstance(_LAST_PROCESSED['classified'], pd.DataFrame):
+        df_classified = _LAST_PROCESSED['classified']
+        diarias_map = get_consolidated_diarias_map(ano, mes)
+        df_daily = aggregate_store_daily(
+            df_classified,
+            diarias_map=diarias_map,
+            hec_minutos_limite=hec_minutos
+        )
+        _LAST_PROCESSED['daily'] = df_daily
+
     quadros_map = get_fixed_quadros_map()
 
     df_summary = calculate_monthly_summary(
@@ -225,16 +461,21 @@ def recalculate_active_closure_summary() -> Optional[Dict[str, Any]]:
         'resultado_total': int(df_summary['resultado'].sum()) if not df_summary.empty else 0,
         'comparativo_total': int(df_summary['comparativo'].sum()) if not df_summary.empty else 0,
         'faltas_operacionais': int(df_summary['faltas_operacionais'].sum()) if not df_summary.empty else 0,
+        'total_atestados_abonados': int(df_summary['atestados_abonados'].sum()) if ('atestados_abonados' in df_summary.columns and not df_summary.empty) else 0,
         'total_inconsistencias': len(_LAST_PROCESSED.get('inc', [])),
         'dias_uteis': int(df_summary['dias_uteis'].iloc[0]) if not df_summary.empty else 26,
     }
 
+    resumo_lojas_list = enrich_resumo_lojas(_serialize_row_dates(df_summary.to_dict(orient='records')))
+    store_map = {r.get('loja_original', r.get('loja')): r.get('loja') for r in resumo_lojas_list}
+    amostra_diaria_list = enrich_amostra_diaria(_serialize_row_dates(df_daily.to_dict(orient='records')), store_map)
+
     payload = {
         'tem_fechamento': True,
         'kpis': kpis,
-        'resumo_lojas': _serialize_row_dates(df_summary.to_dict(orient='records')),
+        'resumo_lojas': resumo_lojas_list,
         'inconsistencias': _serialize_row_dates(_LAST_PROCESSED['inc'].head(300).to_dict(orient='records')) if ('inc' in _LAST_PROCESSED and isinstance(_LAST_PROCESSED['inc'], pd.DataFrame)) else [],
-        'amostra_diaria': _serialize_row_dates(df_daily.to_dict(orient='records')),
+        'amostra_diaria': amostra_diaria_list,
         'mes': mes,
         'ano': ano,
         'hec_minutos': hec_minutos,
@@ -340,6 +581,7 @@ class ProcessarFechamentoView(APIView):
                 'inc': df_inc,
                 'marcas': df_punch_daily,
                 'ponto': df_ponto,
+                'classified': df_classified,
                 'mes': mes,
                 'ano': ano,
                 'hec_minutos': hec_minutos,
@@ -361,15 +603,17 @@ class ProcessarFechamentoView(APIView):
                 'resultado_total': int(df_summary['resultado'].sum()) if not df_summary.empty else 0,
                 'comparativo_total': int(df_summary['comparativo'].sum()) if not df_summary.empty else 0,
                 'faltas_operacionais': int(df_summary['faltas_operacionais'].sum()) if not df_summary.empty else 0,
+                'total_atestados_abonados': int(df_summary['atestados_abonados'].sum()) if ('atestados_abonados' in df_summary.columns and not df_summary.empty) else 0,
                 'total_inconsistencias': int(len(df_inc)),
                 'dias_uteis': int(df_summary['dias_uteis'].iloc[0]) if not df_summary.empty else 26,
             }
 
-            # Serializa linhas com tratamento de datas
-            resumo_lojas_list = _serialize_row_dates(df_summary.to_dict(orient='records'))
+            # Serializa linhas com tratamento de datas e enriquece com Cliente, Supervisão e Coordenação
+            resumo_lojas_list = enrich_resumo_lojas(_serialize_row_dates(df_summary.to_dict(orient='records')))
+            store_map = {r.get('loja_original', r.get('loja')): r.get('loja') for r in resumo_lojas_list}
             inconsistencias_list = _serialize_row_dates(df_inc.head(300).to_dict(orient='records'))
-            # Retorna todos os registros diários para que o usuário possa selecionar qualquer loja na aba detalhe
-            amostra_diaria_list = _serialize_row_dates(df_daily.to_dict(orient='records'))
+            # Retorna todos os registros diários alinhados com o nome de referência oficial da base
+            amostra_diaria_list = enrich_amostra_diaria(_serialize_row_dates(df_daily.to_dict(orient='records')), store_map)
 
             payload = {
                 'tem_fechamento': True,
@@ -418,42 +662,126 @@ class ProcessarFechamentoView(APIView):
 
 class UltimoFechamentoView(APIView):
     permission_classes = [AllowAny]
-    """Retorna os dados do fechamento do mês vigente persistido em disco ou banco."""
+    """Retorna os dados do fechamento do mês solicitado (ou vigente) persistido em disco ou banco."""
 
     def get(self, request, *args, **kwargs):
-        # Tenta carregar do cache JSON em disco
+        mes_param = request.query_params.get('mes')
+        ano_param = request.query_params.get('ano')
+        meses_disp = get_meses_disponiveis()
+
+        # 1. Se mês e ano forem explicitamente solicitados
+        if mes_param and ano_param:
+            try:
+                mes_int = int(mes_param)
+                ano_int = int(ano_param)
+            except (ValueError, TypeError):
+                return Response(
+                    {"erro": "Parâmetros 'mes' e 'ano' devem ser inteiros válidos."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # A. Verifica se o mês coincide com o cache do mês ativo em disco
+            if os.path.exists(CACHE_JSON_PATH):
+                try:
+                    with open(CACHE_JSON_PATH, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    if data.get('mes') == mes_int and data.get('ano') == ano_int:
+                        if data.get('resumo_lojas'):
+                            data['resumo_lojas'] = enrich_resumo_lojas(data['resumo_lojas'])
+                            store_map = {r.get('loja_original', r.get('loja')): r.get('loja') for r in data['resumo_lojas']}
+                            if data.get('amostra_diaria'):
+                                data['amostra_diaria'] = enrich_amostra_diaria(data['amostra_diaria'], store_map)
+                        data['meses_disponiveis'] = meses_disp
+                        restore_last_processed_if_needed()
+                        return Response(data)
+                except Exception as e:
+                    print(f"Aviso ao ler cache para mês específico: {e}")
+
+            # B. Busca no histórico do banco de dados para a competência solicitada
+            historico = HistoricoProcessamento.objects.filter(
+                mes_referencia=mes_int,
+                ano_referencia=ano_int,
+                dados_json__isnull=False
+            ).order_by('-criado_em').first()
+
+            if historico and historico.dados_json:
+                dados = dict(historico.dados_json)
+                if dados.get('resumo_lojas'):
+                    dados['resumo_lojas'] = enrich_resumo_lojas(dados['resumo_lojas'])
+                    store_map = {r.get('loja_original', r.get('loja')): r.get('loja') for r in dados['resumo_lojas']}
+                    if dados.get('amostra_diaria'):
+                        dados['amostra_diaria'] = enrich_amostra_diaria(dados['amostra_diaria'], store_map)
+                dados['meses_disponiveis'] = meses_disp
+                restore_last_processed_from_dados(dados)
+                return Response(dados)
+
+            # C. Não há fechamento salvo para o mês/ano solicitado
+            return Response({
+                "tem_fechamento": False,
+                "mes": mes_int,
+                "ano": ano_int,
+                "meses_disponiveis": meses_disp,
+                "mensagem": f"Nenhum fechamento processado encontrado para {mes_int:02d}/{ano_int}."
+            }, status=status.HTTP_200_OK)
+
+        # 2. Sem parâmetros de mês/ano: busca o ativo em disco ou mais recente do banco
         if os.path.exists(CACHE_JSON_PATH):
             try:
                 with open(CACHE_JSON_PATH, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                # Se o cache ainda estiver com total_esperado baixo devido ao matching antigo, recalcula automaticamente
                 if data.get('kpis', {}).get('total_esperado', 0) <= 7514:
                     recalc = recalculate_active_closure_summary()
                     if recalc:
+                        recalc['meses_disponiveis'] = meses_disp
                         return Response(recalc)
+                if data.get('resumo_lojas'):
+                    data['resumo_lojas'] = enrich_resumo_lojas(data['resumo_lojas'])
+                    store_map = {r.get('loja_original', r.get('loja')): r.get('loja') for r in data['resumo_lojas']}
+                    if data.get('amostra_diaria'):
+                        data['amostra_diaria'] = enrich_amostra_diaria(data['amostra_diaria'], store_map)
+                data['meses_disponiveis'] = meses_disp
                 restore_last_processed_if_needed()
                 return Response(data)
             except Exception as e:
                 print(f"Erro ao ler cache JSON: {e}")
 
-        # Tenta buscar do último registro do banco com dados_json
         ultimo_historico = HistoricoProcessamento.objects.filter(dados_json__isnull=False).order_by('-criado_em').first()
         if ultimo_historico and ultimo_historico.dados_json:
             restore_last_processed_if_needed()
             if ultimo_historico.dados_json.get('kpis', {}).get('total_esperado', 0) <= 7514:
                 recalc = recalculate_active_closure_summary()
                 if recalc:
+                    recalc['meses_disponiveis'] = meses_disp
                     return Response(recalc)
-            return Response(ultimo_historico.dados_json)
+            dados = dict(ultimo_historico.dados_json)
+            if dados.get('resumo_lojas'):
+                dados['resumo_lojas'] = enrich_resumo_lojas(dados['resumo_lojas'])
+                store_map = {r.get('loja_original', r.get('loja')): r.get('loja') for r in dados['resumo_lojas']}
+                if dados.get('amostra_diaria'):
+                    dados['amostra_diaria'] = enrich_amostra_diaria(dados['amostra_diaria'], store_map)
+            dados['meses_disponiveis'] = meses_disp
+            restore_last_processed_from_dados(dados)
+            return Response(dados)
 
         return Response({
             "tem_fechamento": False,
+            "meses_disponiveis": meses_disp,
             "mensagem": "Nenhum fechamento ativo encontrado."
         }, status=status.HTTP_200_OK)
 
     def delete(self, request, *args, **kwargs):
         """Limpa o fechamento ativo em cache para permitir novo processamento do zero."""
         global _LAST_PROCESSED
+        mes_param = request.query_params.get('mes')
+        ano_param = request.query_params.get('ano')
+        if mes_param and ano_param:
+            try:
+                m_int = int(mes_param)
+                a_int = int(ano_param)
+                HistoricoProcessamento.objects.filter(mes_referencia=m_int, ano_referencia=a_int).delete()
+            except Exception:
+                pass
+
         _LAST_PROCESSED.clear()
         if os.path.exists(CACHE_JSON_PATH):
             try:
@@ -467,7 +795,7 @@ class UltimoFechamentoView(APIView):
                 pass
 
         return Response({
-            "mensagem": "Fechamento ativo limpo com sucesso."
+            "mensagem": "Fechamento limpo com sucesso."
         }, status=status.HTTP_200_OK)
 
 
@@ -478,6 +806,23 @@ class ExportarExcelView(APIView):
     def get(self, request, *args, **kwargs):
         global _LAST_PROCESSED
         restore_last_processed_if_needed()
+
+        mes_param = request.query_params.get('mes')
+        ano_param = request.query_params.get('ano')
+        if mes_param and ano_param:
+            try:
+                mes_int = int(mes_param)
+                ano_int = int(ano_param)
+                if not (_LAST_PROCESSED and _LAST_PROCESSED.get('mes') == mes_int and _LAST_PROCESSED.get('ano') == ano_int):
+                    h = HistoricoProcessamento.objects.filter(
+                        mes_referencia=mes_int,
+                        ano_referencia=ano_int,
+                        dados_json__isnull=False
+                    ).order_by('-criado_em').first()
+                    if h and h.dados_json:
+                        restore_last_processed_from_dados(h.dados_json)
+            except Exception as e_h:
+                print(f"Aviso ao buscar historico para exportação Excel: {e_h}")
 
         if not _LAST_PROCESSED or 'summary' not in _LAST_PROCESSED:
             return Response(
@@ -495,9 +840,9 @@ class ExportarExcelView(APIView):
         export_consolidated_excel(
             summary_df=_LAST_PROCESSED['summary'],
             daily_df=_LAST_PROCESSED['daily'],
-            audit_df=_LAST_PROCESSED['audit'].head(10000),  # Limita para performance do download
-            inconsistencias_df=_LAST_PROCESSED['inc'],
-            marcas_clean_df=_LAST_PROCESSED['marcas'],
+            audit_df=_LAST_PROCESSED['audit'].head(10000) if 'audit' in _LAST_PROCESSED and isinstance(_LAST_PROCESSED['audit'], pd.DataFrame) else pd.DataFrame(),
+            inconsistencias_df=_LAST_PROCESSED['inc'] if 'inc' in _LAST_PROCESSED and isinstance(_LAST_PROCESSED['inc'], pd.DataFrame) else pd.DataFrame(),
+            marcas_clean_df=_LAST_PROCESSED['marcas'] if 'marcas' in _LAST_PROCESSED and isinstance(_LAST_PROCESSED['marcas'], pd.DataFrame) else pd.DataFrame(),
             output_path=output_path
         )
 
@@ -517,6 +862,23 @@ class ExportarZipView(APIView):
         global _LAST_PROCESSED
         restore_last_processed_if_needed()
 
+        mes_param = request.query_params.get('mes')
+        ano_param = request.query_params.get('ano')
+        if mes_param and ano_param:
+            try:
+                mes_int = int(mes_param)
+                ano_int = int(ano_param)
+                if not (_LAST_PROCESSED and _LAST_PROCESSED.get('mes') == mes_int and _LAST_PROCESSED.get('ano') == ano_int):
+                    h = HistoricoProcessamento.objects.filter(
+                        mes_referencia=mes_int,
+                        ano_referencia=ano_int,
+                        dados_json__isnull=False
+                    ).order_by('-criado_em').first()
+                    if h and h.dados_json:
+                        restore_last_processed_from_dados(h.dados_json)
+            except Exception as e_h:
+                print(f"Aviso ao buscar historico para exportação ZIP: {e_h}")
+
         if not _LAST_PROCESSED or 'summary' not in _LAST_PROCESSED:
             return Response(
                 {"erro": "Nenhum fechamento processado recentemente para gerar PDFs."},
@@ -533,8 +895,8 @@ class ExportarZipView(APIView):
 
         for _, s_row in df_summary.iterrows():
             loja_nome = s_row['loja']
-            operacao = 'ASSAI' if ('assai' in loja_nome.lower() or 'sendas' in loja_nome.lower()) else 'ATACADAO'
-            store_daily = df_daily[df_daily['loja'] == loja_nome]
+            operacao = 'ASSAI' if ('assai' in str(loja_nome).lower() or 'sendas' in str(loja_nome).lower()) else 'ATACADAO'
+            store_daily = df_daily[df_daily['loja'] == loja_nome] if not df_daily.empty and 'loja' in df_daily.columns else pd.DataFrame()
             pdf_path = export_store_pdf(
                 store_name=loja_nome,
                 operacao=operacao,
@@ -573,6 +935,23 @@ class ExportarLojaPdfView(APIView):
         global _LAST_PROCESSED
         restore_last_processed_if_needed()
 
+        mes_param = request.query_params.get('mes')
+        ano_param = request.query_params.get('ano')
+        if mes_param and ano_param:
+            try:
+                mes_int = int(mes_param)
+                ano_int = int(ano_param)
+                if not (_LAST_PROCESSED and _LAST_PROCESSED.get('mes') == mes_int and _LAST_PROCESSED.get('ano') == ano_int):
+                    h = HistoricoProcessamento.objects.filter(
+                        mes_referencia=mes_int,
+                        ano_referencia=ano_int,
+                        dados_json__isnull=False
+                    ).order_by('-criado_em').first()
+                    if h and h.dados_json:
+                        restore_last_processed_from_dados(h.dados_json)
+            except Exception as e_h:
+                print(f"Aviso ao buscar historico para exportação PDF de loja: {e_h}")
+
         if not _LAST_PROCESSED or 'summary' not in _LAST_PROCESSED:
             return Response(
                 {"erro": "Nenhum fechamento processado recentemente para gerar PDF."},
@@ -584,10 +963,24 @@ class ExportarLojaPdfView(APIView):
         df_summary = _LAST_PROCESSED['summary']
         df_daily = _LAST_PROCESSED['daily']
 
-        # Localiza a loja no resumo
+        # Localiza a loja no resumo (pelo nome original ou pelo nome de referência da base)
         matching_rows = df_summary[df_summary['loja'].str.lower() == loja_param.lower()]
         if matching_rows.empty:
             matching_rows = df_summary[df_summary['loja'].str.contains(re.escape(loja_param), case=False, na=False)]
+
+        if matching_rows.empty:
+            # Tenta resolver comparando pela base de lojas ou integrações
+            try:
+                db_lookup = build_store_lookup()
+                param_match = find_store_match(loja_param, db_lookup)
+                if param_match:
+                    for _, s_row in df_summary.iterrows():
+                        s_match = find_store_match(s_row['loja'], db_lookup)
+                        if s_match and s_match['nome_referencia'] == param_match['nome_referencia']:
+                            matching_rows = df_summary[df_summary['loja'] == s_row['loja']]
+                            break
+            except Exception as e_pdf_match:
+                print(f"Aviso ao resolver loja para PDF: {e_pdf_match}")
 
         if matching_rows.empty:
             return Response(
@@ -597,8 +990,8 @@ class ExportarLojaPdfView(APIView):
 
         s_row = matching_rows.iloc[0]
         loja_nome = s_row['loja']
-        operacao = 'ASSAI' if ('assai' in loja_nome.lower() or 'sendas' in loja_nome.lower()) else 'ATACADAO'
-        store_daily = df_daily[df_daily['loja'] == loja_nome]
+        operacao = 'ASSAI' if ('assai' in str(loja_nome).lower() or 'sendas' in str(loja_nome).lower()) else 'ATACADAO'
+        store_daily = df_daily[df_daily['loja'] == loja_nome] if not df_daily.empty and 'loja' in df_daily.columns else pd.DataFrame()
 
         tmp_dir = tempfile.mkdtemp()
         pdf_path = export_store_pdf(
@@ -710,3 +1103,8 @@ class HistoricoProcessamentoViewSet(viewsets.ReadOnlyModelViewSet):
     """Histórico de fechamentos mensais realizados."""
     queryset = HistoricoProcessamento.objects.all()
     serializer_class = HistoricoProcessamentoSerializer
+
+    @action(detail=False, methods=['get'], url_path='meses-disponiveis')
+    def meses_disponiveis(self, request):
+        """Retorna a lista de competências (mês/ano) que possuem fechamento gravado."""
+        return Response(get_meses_disponiveis())

@@ -135,15 +135,17 @@ export default function ClientHub({
       <div className="client-workspace-header">
         <div className="client-header-title">
           <div className="client-badge-logo">
-            <button 
-              className="btn btn-secondary btn-sm"
-              onClick={onVoltar}
-              title="Voltar para a tela de Clientes (Início)"
-              style={{ marginRight: '6px' }}
-            >
-              <ArrowLeft size={16} />
-              <span>Voltar</span>
-            </button>
+            {onVoltar && (
+              <button 
+                className="btn btn-secondary btn-sm"
+                onClick={onVoltar}
+                title="Voltar para a tela de Clientes (Início)"
+                style={{ marginRight: '6px' }}
+              >
+                <ArrowLeft size={16} />
+                <span>Voltar</span>
+              </button>
+            )}
 
             <div className="client-logo-box">
               <ClientIcon size={26} />

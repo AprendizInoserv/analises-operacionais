@@ -35,8 +35,9 @@ export default function FechamentoCarrefour({
   setFechamentoAtivo,
   onNavigateToDetalhe
 }) {
-  const [mes, setMes] = useState(9); // Setembro
-  const [ano, setAno] = useState(2026);
+  const hoje = new Date();
+  const [mes, setMes] = useState(() => hoje.getMonth() + 1);
+  const [ano, setAno] = useState(() => hoje.getFullYear());
   const [itens, setItens] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -210,8 +211,10 @@ export default function FechamentoCarrefour({
 
           <div className="period-pill">
             <select value={ano} onChange={(e) => setAno(Number(e.target.value))}>
-              <option value={2026}>Ano: 2026</option>
-              <option value={2027}>Ano: 2027</option>
+              {Array.from({ length: 5 }, (_, idx) => {
+                const a = (new Date().getFullYear() - 2) + idx;
+                return <option key={a} value={a}>Ano: {a}</option>;
+              })}
             </select>
           </div>
 

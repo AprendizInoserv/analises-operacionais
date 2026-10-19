@@ -100,9 +100,31 @@ class LojaViewSet(viewsets.ModelViewSet):
                     vinculadas_map[lt.loja_base_id] = lt
                 vinculadas_map[lt.nome.strip().lower()] = lt
 
+        from django.db.models import Q
         lojas_qs = Loja.objects.all().select_related('supervisor', 'coordenador').order_by('nome_referencia')
+
+        # FILTRAGEM ESTRITA POR CLIENTE:
+        # Garante que na tela de Lojas & Tarifas somente filiais pertencentes ao cliente selecionado sejam exibidas
+        cli_cod = (cliente.codigo if cliente else (cliente_codigo or '')).lower().strip()
+        cli_nome = (cliente.nome if cliente else '').lower().strip()
+
+        if cli_cod == 'carrefour' or 'carrefour' in cli_nome:
+            lojas_qs = lojas_qs.filter(Q(cliente__iexact='CARREFOUR') | Q(nome_referencia__icontains='CARREFOUR'))
+        elif cli_cod == 'protege' or 'protege' in cli_nome:
+            lojas_qs = lojas_qs.filter(Q(cliente__iexact='PROTEGE') | Q(nome_referencia__icontains='PROTEGE'))
+        elif cli_cod in ['assai_atacadao', 'atacadao', 'assai'] or 'assa' in cli_nome or 'atacad' in cli_nome:
+            lojas_qs = lojas_qs.filter(
+                Q(cliente__icontains='ASSA') | Q(cliente__icontains='ATACAD') |
+                Q(nome_referencia__icontains='ASSA') | Q(nome_referencia__icontains='ATACAD')
+            )
+        elif cli_cod == 'dia' or 'dia' in cli_nome:
+            lojas_qs = lojas_qs.filter(Q(cliente__icontains='DIA') | Q(nome_referencia__icontains='DIA'))
+        elif cli_cod == 'butanta' or 'butant' in cli_nome:
+            lojas_qs = lojas_qs.filter(Q(cliente__icontains='SHOPPING') | Q(nome_referencia__icontains='BUTANT'))
+        elif cli_cod:
+            lojas_qs = lojas_qs.filter(Q(cliente__icontains=cli_cod) | Q(nome_referencia__icontains=cli_cod))
+
         if busca:
-            from django.db.models import Q
             lojas_qs = lojas_qs.filter(
                 Q(nome_referencia__icontains=busca) |
                 Q(cliente__icontains=busca) |
@@ -156,10 +178,11 @@ class LojaViewSet(viewsets.ModelViewSet):
         
         Regras aplicadas no backend:
         1. Lojas candidatas vêm da base oficial existente (lojas.models.Loja).
-        2. Só lojas ATIVAS na base oficial podem ser adicionadas. Se inativa, bloqueia com 400.
-        3. O estado de ativação é independente por fechamento.
-        4. Não permite a mesma loja duas vezes ativa no mesmo fechamento.
-        5. Se já vinculada mas inativa, permite 'Reativar' em vez de duplicar.
+        2. Só lojas pertencentes ao cliente do fechamento podem ser adicionadas (ex: só Carrefour no Carrefour, só Protege no Protege).
+        3. Só lojas ATIVAS na base oficial podem ser adicionadas. Se inativa, bloqueia com 400.
+        4. O estado de ativação é independente por fechamento.
+        5. Não permite a mesma loja duas vezes ativa no mesmo fechamento.
+        6. Se já vinculada mas inativa, permite 'Reativar' em vez de duplicar.
         """
         from lojas.models import Loja
 
@@ -190,7 +213,44 @@ class LojaViewSet(viewsets.ModelViewSet):
         except Loja.DoesNotExist:
             return Response({"error": "Loja não encontrada na base oficial de lojas."}, status=status.HTTP_404_NOT_FOUND)
 
-        # REGRA 2: Só lojas ATIVAS na base oficial podem ser adicionadas
+        # REGRA CLIENTE: Validação estrita de pertencimento ao cliente
+        cli_cod = (cliente.codigo or '').lower().strip()
+        cli_nome = (cliente.nome or '').lower().strip()
+        loja_cli = (loja_base.cliente or '').upper().strip()
+        loja_nome = (loja_base.nome_referencia or '').upper()
+
+        if cli_cod == 'carrefour' or 'carrefour' in cli_nome:
+            if loja_cli != 'CARREFOUR' and 'CARREFOUR' not in loja_nome:
+                return Response(
+                    {"error": f"A loja '{loja_base.nome_referencia}' não pertence ao cliente Carrefour. Somente lojas do Carrefour podem ser adicionadas a este fechamento."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        elif cli_cod == 'protege' or 'protege' in cli_nome:
+            if loja_cli != 'PROTEGE' and 'PROTEGE' not in loja_nome:
+                return Response(
+                    {"error": f"A loja '{loja_base.nome_referencia}' não pertence ao cliente Protege. Somente lojas do Protege podem ser adicionadas a este fechamento."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        elif cli_cod in ['assai_atacadao', 'atacadao', 'assai'] or 'assa' in cli_nome or 'atacad' in cli_nome:
+            if not ('ASSA' in loja_cli or 'ATACAD' in loja_cli or 'ASSA' in loja_nome or 'ATACAD' in loja_nome):
+                return Response(
+                    {"error": f"A loja '{loja_base.nome_referencia}' não pertence ao fechamento Assaí / Atacadão."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        elif cli_cod == 'dia' or 'dia' in cli_nome:
+            if 'DIA' not in loja_cli and 'DIA' not in loja_nome:
+                return Response(
+                    {"error": f"A loja '{loja_base.nome_referencia}' não pertence ao cliente Supermercados Dia."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        elif cli_cod == 'butanta' or 'butant' in cli_nome:
+            if 'SHOPPING' not in loja_cli and 'BUTANT' not in loja_nome:
+                return Response(
+                    {"error": f"A loja '{loja_base.nome_referencia}' não pertence ao Shopping Butantã."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # REGRA 3: Só lojas ATIVAS na base oficial podem ser adicionadas
         if loja_base.status != 'ATIVA':
             return Response(
                 {"error": f"A loja '{loja_base.nome_referencia}' está INATIVA na base oficial de lojas e não pode ser vinculada ao fechamento."},

@@ -173,6 +173,22 @@ export default function LojasConfig({ showToast, clientCode = 'carrefour' }) {
       return;
     }
 
+    // Validação estrita por cliente
+    const cliUpper = (lojaSelecionada.cliente || '').toUpperCase();
+    const nomeUpper = (lojaSelecionada.nome_referencia || '').toUpperCase();
+
+    if (clientCode === 'carrefour') {
+      if (cliUpper !== 'CARREFOUR' && !nomeUpper.includes('CARREFOUR')) {
+        showToast('Somente filiais do cliente Carrefour podem ser vinculadas a este fechamento.', 'error');
+        return;
+      }
+    } else if (clientCode === 'protege') {
+      if (cliUpper !== 'PROTEGE' && !nomeUpper.includes('PROTEGE')) {
+        showToast('Somente filiais do cliente Grupo Protege podem ser vinculadas a este fechamento.', 'error');
+        return;
+      }
+    }
+
     if (lojaSelecionada.status_oficial !== 'ATIVA') {
       showToast(`A loja "${lojaSelecionada.nome_referencia}" está INATIVA na base oficial de lojas e não pode ser vinculada.`, 'error');
       return;
@@ -244,16 +260,30 @@ export default function LojasConfig({ showToast, clientCode = 'carrefour' }) {
     setPaginaAtual(1);
   }, [busca, filtroStatus]);
 
-  // Filtro de candidatas no modal
+  // Filtro de candidatas no modal restrito ao cliente selecionado
+  const candidatasDoCliente = useMemo(() => {
+    return candidatas.filter(c => {
+      const cli = (c.cliente || '').toUpperCase();
+      const nome = (c.nome_referencia || '').toUpperCase();
+      if (clientCode === 'carrefour') {
+        return cli === 'CARREFOUR' || nome.includes('CARREFOUR');
+      }
+      if (clientCode === 'protege') {
+        return cli === 'PROTEGE' || nome.includes('PROTEGE');
+      }
+      return true;
+    });
+  }, [candidatas, clientCode]);
+
   const candidatasFiltradas = useMemo(() => {
-    if (!buscaCandidata) return candidatas;
+    if (!buscaCandidata) return candidatasDoCliente;
     const b = buscaCandidata.toLowerCase();
-    return candidatas.filter(c => 
+    return candidatasDoCliente.filter(c => 
       c.nome_referencia.toLowerCase().includes(b) ||
       (c.cliente && c.cliente.toLowerCase().includes(b)) ||
       (c.centro_de_custo && c.centro_de_custo.toLowerCase().includes(b))
     );
-  }, [candidatas, buscaCandidata]);
+  }, [candidatasDoCliente, buscaCandidata]);
 
   return (
     <div className="space-y-6">
@@ -569,7 +599,7 @@ export default function LojasConfig({ showToast, clientCode = 'carrefour' }) {
                     Vincular Loja da Base Oficial — {nomeClienteFormatado}
                   </h3>
                   <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                    Apenas lojas com status ATIVA na base corporativa podem ser vinculadas.
+                    Apenas filiais ativas pertencentes exclusivamente ao cliente {nomeClienteFormatado} são permitidas.
                   </p>
                 </div>
               </div>
@@ -583,12 +613,20 @@ export default function LojasConfig({ showToast, clientCode = 'carrefour' }) {
 
             {/* Modal Body */}
             <div className="p-5 overflow-y-auto space-y-4 text-xs">
+              {/* Alerta de Restrição Estrita de Cliente */}
+              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 text-blue-700 dark:text-blue-300 text-[11px]">
+                <Info className="w-4 h-4 shrink-0" />
+                <span>
+                  Filtro estrito ativado: listando somente filiais oficiais cadastradas para o cliente <strong>{nomeClienteFormatado}</strong>.
+                </span>
+              </div>
+
               {/* Busca de Candidatas */}
               <div className="relative">
                 <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
                 <input 
                   type="text" 
-                  placeholder="Pesquisar loja por nome, cliente ou centro de custo na base oficial..." 
+                  placeholder={`Pesquisar entre as filiais ${nomeClienteFormatado} na base oficial...`} 
                   value={buscaCandidata}
                   onChange={(e) => setBuscaCandidata(e.target.value)}
                   className="w-full pl-8 pr-3 py-2 text-xs rounded-lg border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
@@ -599,11 +637,11 @@ export default function LojasConfig({ showToast, clientCode = 'carrefour' }) {
               <div className="border border-neutral-200 dark:border-neutral-800 rounded-xl max-h-56 overflow-y-auto divide-y divide-neutral-100 dark:divide-neutral-800">
                 {loadingCandidatas ? (
                   <div className="py-8 text-center text-neutral-400">
-                    Carregando lojas da base oficial...
+                    Carregando filiais {nomeClienteFormatado} da base oficial...
                   </div>
                 ) : candidatasFiltradas.length === 0 ? (
                   <div className="py-8 text-center text-neutral-400">
-                    Nenhuma loja encontrada na base oficial.
+                    Nenhuma loja do cliente {nomeClienteFormatado} encontrada na base oficial.
                   </div>
                 ) : (
                   candidatasFiltradas.map((cand) => {

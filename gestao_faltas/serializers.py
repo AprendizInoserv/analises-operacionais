@@ -50,6 +50,28 @@ class LojaSerializer(serializers.ModelSerializer):
             'coordenador_oficial', 'supervisor_oficial'
         ]
 
+    def validate(self, attrs):
+        cliente = attrs.get('cliente') or (self.instance.cliente if self.instance else None)
+        loja_base = attrs.get('loja_base') or (self.instance.loja_base if self.instance else None)
+
+        if cliente and loja_base:
+            cli_cod = (cliente.codigo or '').lower().strip()
+            cli_nome = (cliente.nome or '').lower().strip()
+            loja_cli = (loja_base.cliente or '').upper().strip()
+            loja_nome = (loja_base.nome_referencia or '').upper()
+
+            if cli_cod == 'carrefour' or 'carrefour' in cli_nome:
+                if loja_cli != 'CARREFOUR' and 'CARREFOUR' not in loja_nome:
+                    raise serializers.ValidationError({
+                        "loja_base": f"A loja '{loja_base.nome_referencia}' não pertence ao cliente Carrefour. Somente lojas do Carrefour são permitidas."
+                    })
+            elif cli_cod == 'protege' or 'protege' in cli_nome:
+                if loja_cli != 'PROTEGE' and 'PROTEGE' not in loja_nome:
+                    raise serializers.ValidationError({
+                        "loja_base": f"A loja '{loja_base.nome_referencia}' não pertence ao cliente Protege. Somente lojas do Protege são permitidas."
+                    })
+        return attrs
+
 
 class ColaboradorSerializer(serializers.ModelSerializer):
     loja_nome = serializers.CharField(source='loja.nome', read_only=True)

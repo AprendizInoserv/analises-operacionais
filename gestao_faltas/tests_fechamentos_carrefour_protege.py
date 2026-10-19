@@ -62,6 +62,24 @@ class FechamentosCarrefourProtegeTests(TestCase):
             supervisor=self.supervisor
         )
 
+        self.loja_oficial_protege = Loja.objects.create(
+            nome_referencia='PROTEGE CAMPINAS',
+            centro_de_custo='CC-PROT-1',
+            quadro='8',
+            cliente='PROTEGE',
+            status='ATIVA',
+            coordenador=self.coordenador,
+            supervisor=self.supervisor
+        )
+
+        self.loja_oficial_assai = Loja.objects.create(
+            nome_referencia='ASSAÍ SÃO PAULO',
+            centro_de_custo='CC-ASSAI-1',
+            quadro='20',
+            cliente='ASSAÍ',
+            status='ATIVA'
+        )
+
     def test_mes_vigente_na_abertura_e_navegacao_competencias(self):
         """Ao abrir sem mês/ano especificado, inicializa dinamicamente no mês/ano vigentes do sistema."""
         hoje = date.today()
@@ -264,3 +282,68 @@ class FechamentosCarrefourProtegeTests(TestCase):
         )
         res_toggle = anon_client.post(f'/api/faltas/lojas/lojas/{lt.id}/toggle-ativo/')
         self.assertIn(res_toggle.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
+
+    def test_somente_lojas_carrefour_permitidas(self):
+        """No fechamento Carrefour, somente lojas pertencentes ao Carrefour devem ser listadas e permitidas."""
+        # 1. Candidatas para Carrefour só devem trazer lojas do Carrefour
+        res_cand = self.client.get('/api/faltas/lojas/lojas/candidatas-base/?cliente_codigo=carrefour')
+        self.assertEqual(res_cand.status_code, status.HTTP_200_OK)
+        nomes_cand = [c['nome_referencia'] for c in res_cand.json()]
+        self.assertIn('CARREFOUR OSASCO', nomes_cand)
+        self.assertIn('CARREFOUR FECHADA', nomes_cand)
+        self.assertNotIn('PROTEGE CAMPINAS', nomes_cand)
+        self.assertNotIn('ASSAÍ SÃO PAULO', nomes_cand)
+
+        # 2. Tentativa de adicionar loja do Protege no Carrefour deve ser bloqueada com 400
+        res_add_invalida = self.client.post('/api/faltas/lojas/lojas/adicionar-da-base/', {
+            'loja_base_id': self.loja_oficial_protege.id,
+            'cliente_codigo': 'carrefour',
+            'desconto_por_falta': 150.0
+        })
+        self.assertEqual(res_add_invalida.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('não pertence ao cliente Carrefour', res_add_invalida.json()['error'])
+
+        # 3. Tentativa de adicionar loja do Assaí no Carrefour deve ser bloqueada com 400
+        res_add_assai = self.client.post('/api/faltas/lojas/lojas/adicionar-da-base/', {
+            'loja_base_id': self.loja_oficial_assai.id,
+            'cliente_codigo': 'carrefour',
+            'desconto_por_falta': 150.0
+        })
+        self.assertEqual(res_add_assai.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('não pertence ao cliente Carrefour', res_add_assai.json()['error'])
+
+        # 4. Adicionar loja válida do Carrefour deve funcionar com sucesso
+        res_add_valida = self.client.post('/api/faltas/lojas/lojas/adicionar-da-base/', {
+            'loja_base_id': self.loja_oficial_ativa.id,
+            'cliente_codigo': 'carrefour',
+            'desconto_por_falta': 150.0
+        })
+        self.assertEqual(res_add_valida.status_code, status.HTTP_201_CREATED)
+
+    def test_somente_lojas_protege_permitidas(self):
+        """No fechamento Protege, somente lojas pertencentes ao Protege devem ser listadas e permitidas."""
+        # 1. Candidatas para Protege só devem trazer lojas do Protege
+        res_cand = self.client.get('/api/faltas/lojas/lojas/candidatas-base/?cliente_codigo=protege')
+        self.assertEqual(res_cand.status_code, status.HTTP_200_OK)
+        nomes_cand = [c['nome_referencia'] for c in res_cand.json()]
+        self.assertIn('PROTEGE CAMPINAS', nomes_cand)
+        self.assertNotIn('CARREFOUR OSASCO', nomes_cand)
+        self.assertNotIn('ASSAÍ SÃO PAULO', nomes_cand)
+
+        # 2. Tentativa de adicionar loja do Carrefour no Protege deve ser bloqueada com 400
+        res_add_invalida = self.client.post('/api/faltas/lojas/lojas/adicionar-da-base/', {
+            'loja_base_id': self.loja_oficial_ativa.id,
+            'cliente_codigo': 'protege',
+            'desconto_por_falta': 120.0
+        })
+        self.assertEqual(res_add_invalida.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('não pertence ao cliente Protege', res_add_invalida.json()['error'])
+
+        # 3. Adicionar loja válida do Protege deve funcionar com sucesso
+        res_add_valida = self.client.post('/api/faltas/lojas/lojas/adicionar-da-base/', {
+            'loja_base_id': self.loja_oficial_protege.id,
+            'cliente_codigo': 'protege',
+            'desconto_por_falta': 120.0
+        })
+        self.assertEqual(res_add_valida.status_code, status.HTTP_201_CREATED)
+

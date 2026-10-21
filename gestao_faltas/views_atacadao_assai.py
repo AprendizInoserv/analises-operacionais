@@ -213,6 +213,64 @@ def find_store_match(report_name: str, db_lookup: List[Dict[str, Any]]) -> Optio
     return best_item
 
 
+def get_store_operacao(loja_nome: Any, s_row: Optional[Any] = None, db_lookup: Optional[List[Dict[str, Any]]] = None) -> str:
+    """
+    Determina de forma determinística e prioritária se a operação da loja é 'ASSAI' ou 'ATACADAO'.
+    Prioriza:
+    1. Campo 'cliente' do registro de resumo (ex: 'ASSAÍ' -> 'ASSAI')
+    2. Detecção por regex insensível a acentos no nome da loja (ASSAÍ, ASSAI, SENDAS)
+    3. Mapeamento com a base de lojas oficial (Loja) através de find_store_match
+    4. Consulta à tabela consolidada QuadroLoja
+    """
+    if s_row is not None:
+        cli = None
+        if isinstance(s_row, dict):
+            cli = s_row.get('cliente')
+        elif hasattr(s_row, 'get'):
+            cli = s_row.get('cliente')
+        elif hasattr(s_row, '__getitem__'):
+            try:
+                cli = s_row['cliente']
+            except Exception:
+                pass
+        if cli:
+            cli_norm = _clean_str_for_matching(cli)
+            if 'ASSA' in cli_norm or 'SENDAS' in cli_norm:
+                return 'ASSAI'
+            if 'ATACAD' in cli_norm:
+                return 'ATACADAO'
+
+    name_str = str(loja_nome or '').strip()
+    if not name_str:
+        return 'ATACADAO'
+
+    if re.search(r'assa[ií]|sendas', name_str, re.IGNORECASE):
+        return 'ASSAI'
+
+    try:
+        if db_lookup is None:
+            db_lookup = build_store_lookup()
+        matched = find_store_match(name_str, db_lookup)
+        if matched:
+            cli_norm = _clean_str_for_matching(matched.get('cliente', ''))
+            if 'ASSA' in cli_norm or 'SENDAS' in cli_norm:
+                return 'ASSAI'
+            if 'ATACAD' in cli_norm:
+                return 'ATACADAO'
+    except Exception:
+        pass
+
+    try:
+        from .models import QuadroLoja
+        ql = QuadroLoja.objects.filter(nome_loja__iexact=name_str).first()
+        if ql and ql.operacao:
+            return ql.operacao
+    except Exception:
+        pass
+
+    return 'ATACADAO'
+
+
 def enrich_resumo_lojas(resumo_lojas: list) -> list:
     """
     Enriquece a lista resumo_lojas relacionando o nome que vem do relatório com a base oficial de lojas
@@ -242,7 +300,7 @@ def enrich_resumo_lojas(resumo_lojas: list) -> list:
                     cli = 'ASSAÍ'
                 elif 'ATACAD' in matched['cliente']:
                     cli = 'ATACADÃO'
-                elif 'ASSAI' in loja_original.upper() or 'SENDAS' in loja_original.upper():
+                elif re.search(r'assa[ií]|sendas', loja_original, re.IGNORECASE):
                     cli = 'ASSAÍ'
                 else:
                     cli = 'ATACADÃO'
@@ -254,7 +312,7 @@ def enrich_resumo_lojas(resumo_lojas: list) -> list:
                 r['loja'] = loja_original
                 r['nome_referencia'] = loja_original
                 r['loja_original'] = loja_original
-                cli = 'ASSAÍ' if ('assai' in loja_original.lower() or 'sendas' in loja_original.lower()) else 'ATACADÃO'
+                cli = 'ASSAÍ' if re.search(r'assa[ií]|sendas', loja_original, re.IGNORECASE) else 'ATACADÃO'
                 coord = r.get('coordenacao') or 'Não Informado'
                 sup = r.get('supervisao') or 'Não Informado'
 
@@ -270,7 +328,7 @@ def enrich_resumo_lojas(resumo_lojas: list) -> list:
             r.setdefault('loja_original', loja_orig)
             r.setdefault('nome_referencia', r.get('loja', loja_orig))
             if 'cliente' not in r:
-                r['cliente'] = 'ASSAÍ' if ('assai' in loja_orig.lower() or 'sendas' in loja_orig.lower()) else 'ATACADÃO'
+                r['cliente'] = 'ASSAÍ' if re.search(r'assa[ií]|sendas', loja_orig, re.IGNORECASE) else 'ATACADÃO'
             if 'coordenacao' not in r:
                 r['coordenacao'] = 'Não Informado'
             if 'supervisao' not in r:
@@ -301,59 +359,106 @@ def enrich_amostra_diaria(amostra_diaria: list, store_map: Optional[Dict[str, st
 
 def get_fixed_quadros_map() -> Dict[str, int]:
     """
-    Retorna o dicionário de quadros de lojas fixados.
+    Retorna o dicionário de quadros de lojas fixados indexando a base oficial.
     
     Regra de negócio:
-    1. Lê os registros de QuadroLoja existentes no banco de dados.
-    2. Para lojas de Assaí e Atacadão cadastradas no sistema (lojas.models.Loja),
-       se o quadro da loja (Loja.quadro) estiver configurado e ainda NÃO existir
-       em QuadroLoja, cria o registro em QuadroLoja correspondente com o valor de Loja.quadro,
-       tornando-o FIXADO a partir desse momento.
-    3. Registros já existentes em QuadroLoja NÃO são sobrescritos pelo sistema,
-       garantindo que qualquer ajuste manual realizado pelo usuário seja permanentemente preservado.
-    4. Aplica fallback para DEFAULT_QUADROS apenas para nomes residuais não cadastrados no banco.
+    1. Mantém a tabela QuadroLoja 1-para-1 com a base oficial de lojas (lojas.models.Loja)
+       para Assaí e Atacadão, eliminando qualquer duplicata.
+    2. A operação (ASSAI vs ATACADAO) é determinada estritamente a partir do cliente
+       oficial cadastrado na base de lojas (loja.cliente), sem risco de erros com acentuação.
+    3. Constrói o mapa de consulta em memória mapeando tanto o nome_referencia quanto
+       todos os nomes de integração cadastrados (nome_geovictoria, nome_totvs, etc.),
+       garantindo que qualquer denominação vinda de relatórios encontre o quadro oficial
+       correto sem a necessidade de duplicar registros no banco.
     """
     from lojas.models import Loja
     from .services_atacadao.normalizer import normalize_store_name
 
-    quadros_qs = QuadroLoja.objects.filter(ativo=True)
-    quadros_map = {q.nome_loja: q.quadro_previsto for q in quadros_qs}
+    db_lookup = build_store_lookup()
+    lojas_db = list(
+        Loja.objects.filter(cliente__iregex=r'ASSA|SENDAS|ATACAD')
+        .select_related('coordenador', 'supervisor')
+        .order_by('cliente', 'nome_referencia')
+    )
 
-    # Inicializa / fixa lojas do cadastro geral de Lojas que ainda não possuem QuadroLoja
-    try:
-        lojas_db = Loja.objects.filter(cliente__iregex=r'ASSA|ATACAD')
-        novos_quadros = []
-        for l in lojas_db:
-            try:
-                q_val = int(float(str(l.quadro).strip()))
-            except (ValueError, TypeError):
-                continue
-            if q_val <= 0:
-                continue
+    quadros_map: Dict[str, int] = {}
+    
+    # 1. Garante que cada loja oficial tenha seu registro único em QuadroLoja
+    for l in lojas_db:
+        cli_norm = _clean_str_for_matching(l.cliente)
+        operacao_correta = 'ASSAI' if ('ASSA' in cli_norm or 'SENDAS' in cli_norm) else 'ATACADAO'
 
-            nomes = []
-            if l.nome_geovictoria:
-                nomes.append(normalize_store_name(l.nome_geovictoria))
-            if l.nome_referencia:
-                nomes.append(l.nome_referencia)
+        try:
+            q_val = int(float(str(l.quadro).strip()))
+        except (ValueError, TypeError):
+            q_val = 0
 
-            for n in nomes:
-                if n and n not in quadros_map:
-                    operacao = 'ASSAI' if ('assai' in n.lower() or 'sendas' in n.lower()) else 'ATACADAO'
-                    novos_quadros.append(
-                        QuadroLoja(
-                            nome_loja=n,
-                            operacao=operacao,
-                            quadro_previsto=q_val,
-                            ativo=True
-                        )
-                    )
-                    quadros_map[n] = q_val
+        ativo = (l.status == 'ATIVA')
 
-        if novos_quadros:
-            QuadroLoja.objects.bulk_create(novos_quadros, ignore_conflicts=True)
-    except Exception as e_lojas:
-        print(f"Aviso ao sincronizar quadros de Loja: {e_lojas}")
+        # Busca registro existente por loja_base ou nome_loja exato
+        ql_obj = QuadroLoja.objects.filter(loja_base=l).first()
+        if not ql_obj:
+            ql_obj = QuadroLoja.objects.filter(nome_loja=l.nome_referencia).first()
+
+        if ql_obj:
+            if ql_obj.quadro_previsto > 0:
+                q_val = ql_obj.quadro_previsto
+            need_save = False
+            if ql_obj.nome_loja != l.nome_referencia:
+                ql_obj.nome_loja = l.nome_referencia
+                need_save = True
+            if ql_obj.operacao != operacao_correta:
+                ql_obj.operacao = operacao_correta
+                need_save = True
+            if ql_obj.loja_base_id != l.id:
+                ql_obj.loja_base = l
+                need_save = True
+            if ql_obj.ativo != ativo:
+                ql_obj.ativo = ativo
+                need_save = True
+            if ql_obj.quadro_previsto != q_val:
+                ql_obj.quadro_previsto = q_val
+                need_save = True
+
+            if need_save:
+                ql_obj.save()
+        else:
+            ql_obj = QuadroLoja.objects.create(
+                nome_loja=l.nome_referencia,
+                operacao=operacao_correta,
+                quadro_previsto=q_val,
+                ativo=ativo,
+                loja_base=l
+            )
+
+        # Remove eventuais duplicatas em QuadroLoja que apontem para o mesmo l.id
+        dups_qs = QuadroLoja.objects.filter(loja_base=l).exclude(id=ql_obj.id)
+        if dups_qs.exists():
+            dups_qs.delete()
+
+        # Mapeia em memória para o cálculo do fechamento
+        # (indexando nome_referencia e todas as integrações da loja)
+        if q_val > 0:
+            quadros_map[l.nome_referencia] = q_val
+            quadros_map[_clean_str_for_matching(l.nome_referencia)] = q_val
+            quadros_map[normalize_store_name(l.nome_referencia)] = q_val
+
+            for field in [l.nome_geovictoria, l.nome_totvs, l.nome_financeiro, l.nome_findme, l.nome_metricas]:
+                if field:
+                    quadros_map[field] = q_val
+                    quadros_map[_clean_str_for_matching(field)] = q_val
+                    norm_field = normalize_store_name(field)
+                    if norm_field:
+                        quadros_map[norm_field] = q_val
+                        quadros_map[_clean_str_for_matching(norm_field)] = q_val
+
+    # 2. Remove registros órfãos ou duplicados residuais que não correspondam a nenhuma loja oficial
+    lojas_oficiais_nomes = set(l.nome_referencia for l in lojas_db)
+    orfaos_qs = QuadroLoja.objects.exclude(nome_loja__in=lojas_oficiais_nomes).exclude(loja_base__in=lojas_db)
+    for orfao in orfaos_qs:
+        m = find_store_match(orfao.nome_loja, db_lookup)
+        if m:
+            orfao.delete()
 
     # Fallback seguro para defaults se ainda houver lojas não mapeadas
     for k, v in DEFAULT_QUADROS.items():
@@ -893,9 +998,10 @@ class ExportarZipView(APIView):
         tmp_dir = tempfile.mkdtemp()
         pdf_paths = []
 
+        db_lookup = build_store_lookup()
         for _, s_row in df_summary.iterrows():
             loja_nome = s_row['loja']
-            operacao = 'ASSAI' if ('assai' in str(loja_nome).lower() or 'sendas' in str(loja_nome).lower()) else 'ATACADAO'
+            operacao = get_store_operacao(loja_nome, s_row=s_row, db_lookup=db_lookup)
             store_daily = df_daily[df_daily['loja'] == loja_nome] if not df_daily.empty and 'loja' in df_daily.columns else pd.DataFrame()
             pdf_path = export_store_pdf(
                 store_name=loja_nome,
@@ -990,7 +1096,10 @@ class ExportarLojaPdfView(APIView):
 
         s_row = matching_rows.iloc[0]
         loja_nome = s_row['loja']
-        operacao = 'ASSAI' if ('assai' in str(loja_nome).lower() or 'sendas' in str(loja_nome).lower()) else 'ATACADAO'
+        db_lookup = build_store_lookup()
+        operacao = get_store_operacao(loja_nome, s_row=s_row, db_lookup=db_lookup)
+        if operacao == 'ATACADAO':
+            operacao = get_store_operacao(loja_param, db_lookup=db_lookup)
         store_daily = df_daily[df_daily['loja'] == loja_nome] if not df_daily.empty and 'loja' in df_daily.columns else pd.DataFrame()
 
         tmp_dir = tempfile.mkdtemp()
@@ -1018,11 +1127,26 @@ class ExportarLojaPdfView(APIView):
 class QuadroLojaViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     """CRUD de quadros previstos de lojas com suporte a carga em lote e recálculo automático."""
-    queryset = QuadroLoja.objects.all()
+    queryset = QuadroLoja.objects.select_related('loja_base', 'loja_base__coordenador', 'loja_base__supervisor').all()
     serializer_class = QuadroLojaSerializer
 
     def perform_create(self, serializer):
-        super().perform_create(serializer)
+        nome = serializer.validated_data.get('nome_loja', '')
+        db_lookup = build_store_lookup()
+        matched = find_store_match(nome, db_lookup)
+        if matched:
+            cli_norm = _clean_str_for_matching(matched['cliente'])
+            op = 'ASSAI' if ('ASSA' in cli_norm or 'SENDAS' in cli_norm) else 'ATACADAO'
+            serializer.save(
+                nome_loja=matched['nome_referencia'],
+                operacao=op,
+                loja_base=matched['loja_obj']
+            )
+        else:
+            op = serializer.validated_data.get('operacao')
+            if not op or op not in ('ASSAI', 'ATACADAO'):
+                op = 'ASSAI' if re.search(r'assa[ií]|sendas', nome, re.IGNORECASE) else 'ATACADAO'
+            serializer.save(operacao=op)
         recalculate_active_closure_summary()
 
     def perform_update(self, serializer):
@@ -1062,17 +1186,30 @@ class QuadroLojaViewSet(viewsets.ModelViewSet):
 
         criados = 0
         atualizados = 0
+        db_lookup = build_store_lookup()
         for nome, q in pares:
             nome_clean = nome.strip()
             if not nome_clean:
                 continue
-            operacao = 'ASSAI' if ('assai' in nome_clean.lower() or 'sendas' in nome_clean.lower()) else 'ATACADAO'
+
+            matched = find_store_match(nome_clean, db_lookup)
+            if matched:
+                nome_final = matched['nome_referencia']
+                cli_norm = _clean_str_for_matching(matched['cliente'])
+                operacao = 'ASSAI' if ('ASSA' in cli_norm or 'SENDAS' in cli_norm) else 'ATACADAO'
+                loja_base = matched['loja_obj']
+            else:
+                nome_final = nome_clean
+                operacao = 'ASSAI' if re.search(r'assa[ií]|sendas', nome_clean, re.IGNORECASE) else 'ATACADAO'
+                loja_base = None
+
             obj, created = QuadroLoja.objects.update_or_create(
-                nome_loja=nome_clean,
+                nome_loja=nome_final,
                 defaults={
                     'operacao': operacao,
                     'quadro_previsto': int(q),
-                    'ativo': True
+                    'ativo': True,
+                    'loja_base': loja_base,
                 }
             )
             if created:

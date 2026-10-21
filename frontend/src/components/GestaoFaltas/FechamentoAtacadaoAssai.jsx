@@ -554,8 +554,14 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
   const quadrosFiltrados = useMemo(() => {
     if (!quadrosList) return [];
     if (!filtroBuscaQuadro) return quadrosList;
-    const term = filtroBuscaQuadro.toLowerCase();
-    return quadrosList.filter(q => q.nome_loja.toLowerCase().includes(term));
+    const term = filtroBuscaQuadro.toLowerCase().trim();
+    return quadrosList.filter(q =>
+      (q.nome_loja && q.nome_loja.toLowerCase().includes(term)) ||
+      (q.codigo_loja && String(q.codigo_loja).includes(term)) ||
+      (q.nome_geovictoria && q.nome_geovictoria.toLowerCase().includes(term)) ||
+      (q.coordenador && q.coordenador.toLowerCase().includes(term)) ||
+      (q.supervisor && q.supervisor.toLowerCase().includes(term))
+    );
   }, [quadrosList, filtroBuscaQuadro]);
 
   const totalPaginasQuadros = Math.max(1, Math.ceil(quadrosFiltrados.length / ITENS_POR_PAGINA));
@@ -1896,15 +1902,32 @@ export default function FechamentoAtacadaoAssai({ showToast }) {
                     </div>
                   ) : (
                     paginatedQuadros.map((q) => {
-                      const isAssai = q.operacao === 'ASSAI' || q.nome_loja.toLowerCase().includes('assai');
+                      const isAssai = q.operacao === 'ASSAI' || /assa[ií]|sendas/i.test(q.nome_loja);
                       return (
                         <div key={q.id} className="faa-list-item">
                           <div className="faa-list-item-info">
-                            <span className="faa-list-item-title">{q.nome_loja}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span className="faa-list-item-title">{q.nome_loja}</span>
+                              {q.status_loja === 'INATIVA' && (
+                                <span style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: '4px', background: 'rgba(239, 68, 68, 0.2)', color: '#f87171' }}>
+                                  Inativa
+                                </span>
+                              )}
+                            </div>
                             <span className="faa-list-item-sub">
                               <span className={`faa-badge-op ${isAssai ? 'assai' : 'atacadao'}`} style={{ marginRight: '6px' }}>
                                 {isAssai ? 'ASSAÍ' : 'ATACADÃO'}
                               </span>
+                              {q.codigo_loja && (
+                                <span style={{ marginRight: '6px', color: 'var(--text-muted)' }}>
+                                  Cód. {q.codigo_loja}
+                                </span>
+                              )}
+                              {q.coordenador && (
+                                <span style={{ color: 'var(--text-muted)' }}>
+                                  • {q.coordenador}
+                                </span>
+                              )}
                             </span>
                           </div>
                           <span style={{ fontWeight: 700, color: 'var(--accent-teal)' }}>

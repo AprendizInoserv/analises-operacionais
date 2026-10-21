@@ -9,6 +9,8 @@ from django.http import JsonResponse
 from decouple import config
 
 START_TIME = time.time()
+_LAST_NET_CHECK = 0
+_CACHED_NET_ACCESSIBLE = False
 
 
 def health_check(request):
@@ -75,11 +77,24 @@ def health_check(request):
         checks["disk"] = {"status": "error", "error": str(e)}
 
     # 3. Checagem de Armazenamento de Rede / Backup
+    global _LAST_NET_CHECK, _CACHED_NET_ACCESSIBLE
     backup_path = config("SQLITE_BACKUP_PATH", default="").strip('\'"')
     if backup_path:
+        now = time.time()
+        if (now - _LAST_NET_CHECK) > 60:
+            _LAST_NET_CHECK = now
+            try:
+                drive, _ = os.path.splitdrive(backup_path)
+                if drive and not os.path.exists(drive + "\\"):
+                    _CACHED_NET_ACCESSIBLE = False
+                else:
+                    _CACHED_NET_ACCESSIBLE = os.path.exists(os.path.dirname(backup_path))
+            except (OSError, PermissionError):
+                _CACHED_NET_ACCESSIBLE = False
+
         checks["network_backup_share"] = {
             "configured_path": backup_path,
-            "accessible": os.path.exists(os.path.dirname(backup_path)) if backup_path else False,
+            "accessible": _CACHED_NET_ACCESSIBLE,
         }
 
     # 4. Checagem de Integração GeoVictoria (credenciais)

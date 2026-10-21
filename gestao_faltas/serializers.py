@@ -122,9 +122,30 @@ class FechamentoCreateUpdateSerializer(serializers.ModelSerializer):
 
 
 class QuadroLojaSerializer(serializers.ModelSerializer):
+    codigo_loja = serializers.SerializerMethodField()
+    nome_geovictoria = serializers.SerializerMethodField()
+    status_loja = serializers.SerializerMethodField()
+    coordenador = serializers.SerializerMethodField()
+    supervisor = serializers.SerializerMethodField()
+
     class Meta:
         model = QuadroLoja
         fields = '__all__'
+
+    def get_codigo_loja(self, obj):
+        return obj.loja_base.codigo_loja if obj.loja_base and obj.loja_base.codigo_loja else None
+
+    def get_nome_geovictoria(self, obj):
+        return obj.loja_base.nome_geovictoria if obj.loja_base else None
+
+    def get_status_loja(self, obj):
+        return obj.loja_base.status if obj.loja_base else ('ATIVA' if obj.ativo else 'INATIVA')
+
+    def get_coordenador(self, obj):
+        return obj.loja_base.coordenador.nome if obj.loja_base and obj.loja_base.coordenador else ''
+
+    def get_supervisor(self, obj):
+        return obj.loja_base.supervisor.nome if obj.loja_base and obj.loja_base.supervisor else ''
 
 
 class DiariaManualSerializer(serializers.ModelSerializer):

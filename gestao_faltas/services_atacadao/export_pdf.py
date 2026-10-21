@@ -106,9 +106,23 @@ def export_store_pdf(
     clean_store = sanitize_filename(store_name)
     pdf_filename = f"relatorio_{clean_store}.pdf"
     output_path = os.path.join(output_dir, pdf_filename)
-
     mes_val = mes or 8
     ano_val = ano or 2026
+
+    # Normalização segura da rede (Assaí vs Atacadão)
+    import re
+    store_str = str(store_name or '')
+    store_summary_cli = str((store_summary or {}).get('cliente', '') or '')
+    if (
+        bool(re.search(r'assa[ií]|sendas', store_str, re.IGNORECASE)) or
+        bool(re.search(r'assa[ií]|sendas', store_summary_cli, re.IGNORECASE)) or
+        (operacao and bool(re.search(r'assa[ií]|sendas', str(operacao), re.IGNORECASE)))
+    ):
+        operacao_oficial = 'ASSAÍ'
+    else:
+        operacao_oficial = 'ATACADÃO'
+
+    operacao = 'ASSAI' if operacao_oficial == 'ASSAÍ' else 'ATACADAO'
 
     # Configuração de Página: A4 Paisagem (841.89 x 595.27 pt)
     # Margens estreitas para caber os 31 dias + cabeçalho em 1 página
@@ -172,7 +186,7 @@ def export_store_pdf(
     nome_mes = meses_pt[mes_val] if 1 <= mes_val <= 12 else f"Mês {mes_val}"
 
     p_title = Paragraph("<b>FECHAMENTO OPERACIONAL DE FALTAS</b>", title_left_style)
-    p_sub = Paragraph(f"Relatório Oficial de Efetividade e Apuração de Presenças  •  Rede {operacao.upper()}", sub_left_style)
+    p_sub = Paragraph(f"Relatório Oficial de Efetividade e Apuração de Presenças  •  Rede {operacao_oficial}", sub_left_style)
     p_comp = Paragraph(f"<b>COMPETÊNCIA: {nome_mes.upper()} / {ano_val}</b>", title_right_style)
     p_status = Paragraph(f"Apuração: <b>{mes_val:02d}/{ano_val}</b>  |  Validação 100% Determinística", sub_right_style)
 
@@ -198,7 +212,7 @@ def export_store_pdf(
     store_bar_data = [[
         Paragraph(
             f"<font color='white'><b>FILIAL:</b> {store_name.upper()}  &nbsp;&nbsp;|&nbsp;&nbsp; "
-            f"<b>OPERAÇÃO:</b> {operacao.upper()}  &nbsp;&nbsp;|&nbsp;&nbsp; "
+            f"<b>OPERAÇÃO:</b> {operacao_oficial}  &nbsp;&nbsp;|&nbsp;&nbsp; "
             f"<b>QUADRO PREVISTO:</b> {quadro_val} POSTOS  &nbsp;&nbsp;|&nbsp;&nbsp; "
             f"<b>DIAS ÚTEIS:</b> {dias_uteis_val}  &nbsp;&nbsp;|&nbsp;&nbsp; "
             f"<b>TOTAL ESPERADO:</b> {total_esperado_val} DIAS</font>",

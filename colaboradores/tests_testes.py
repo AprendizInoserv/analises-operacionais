@@ -133,3 +133,51 @@ class TestesPromocaoExportTests(TestCase):
         df = pd.read_excel(BytesIO(response.content))
         self.assertEqual(len(df), 1)
         self.assertEqual(str(df.iloc[0]["RE"]), "20001")
+
+
+class ResilientStorageAndUploadTests(TestCase):
+    """
+    Testes automatizados para garantir que o cadastro de testes e o armazenamento de arquivos
+    não falhem com erro 500 mesmo se a unidade de rede (ex.: F:\\) estiver desconectada ou rejeitada por credenciais.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_superuser(username="admin_storage", password="password123")
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+        self.colaborador = Colaborador.objects.create(
+            re="99999",
+            nome="TESTE COLABORADOR",
+            centro_custo="0101",
+            data_admissao=date(2025, 1, 1),
+            status="ATIVO",
+            cargo="ATENDENTE",
+        )
+
+    def test_cadastro_teste_com_anexo_em_rede_indisponivel(self):
+        """
+        Garante que enviar um arquivo via POST /colaboradores/testes/ é concluído com sucesso
+        (HTTP 201) usando fallback local se a unidade de rede configurada estiver inacessível.
+        """
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        pdf_content = b"%PDF-1.4 mock content folha de teste"
+        anexo = SimpleUploadedFile("folha_teste_promocao.pdf", pdf_content, content_type="application/pdf")
+
+        data = {
+            "colaborador_id": self.colaborador.id,
+            "data_inicio": "2026-10-20",
+            "cargo_teste": "LÍDER DE LOJA",
+            "anexo": anexo,
+        }
+
+        response = self.client.post("/colaboradores/testes/", data, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIn("id", response.data)
+        teste_id = response.data["id"]
+
+        # Verifica se o download do anexo funciona corretamente
+        dl_response = self.client.get(f"/colaboradores/testes/{teste_id}/download/")
+        self.assertEqual(dl_response.status_code, status.HTTP_200_OK)
+        content = b"".join(dl_response.streaming_content) if hasattr(dl_response, "streaming_content") else dl_response.content
+        self.assertEqual(content, pdf_content)

@@ -32,7 +32,21 @@ def export_consolidated_excel(
             pd.DataFrame([{'Status': 'Sem dados'}]).to_excel(writer, sheet_name='RESUMO', index=False)
 
         # 2. Fechamento por Loja
-        summary_df.to_excel(writer, sheet_name='FECHAMENTO POR LOJA', index=False)
+        summary_export = summary_df.copy() if not summary_df.empty else pd.DataFrame()
+        if not summary_export.empty and 'loja' in summary_export.columns:
+            import re
+            def _get_op_excel(name):
+                return 'ASSAÍ' if re.search(r'assa[ií]|sendas', str(name), re.IGNORECASE) else 'ATACADÃO'
+
+            if 'cliente' not in summary_export.columns:
+                summary_export['cliente'] = summary_export['loja'].apply(_get_op_excel)
+            if 'operacao' not in summary_export.columns:
+                summary_export['operacao'] = summary_export['cliente']
+
+            cols = ['loja', 'cliente', 'operacao'] + [c for c in summary_export.columns if c not in ('loja', 'cliente', 'operacao')]
+            summary_export = summary_export[[c for c in cols if c in summary_export.columns]]
+
+        summary_export.to_excel(writer, sheet_name='FECHAMENTO POR LOJA', index=False)
 
         # 3. Fechamento Diário
         daily_df.to_excel(writer, sheet_name='FECHAMENTO DIÁRIO', index=False)

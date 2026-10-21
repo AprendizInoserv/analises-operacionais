@@ -2,10 +2,11 @@ from django.db import models
 from lojas.models import Loja
 from django.core.files.storage import FileSystemStorage
 from decouple import config
+from .storage import ResilientFileSystemStorage
 
-# Por que existe: Instancia o storage customizado para salvar arquivos na pasta escolhida no .env.
+# Por que existe: Instancia o storage customizado tolerante a falhas para salvar arquivos na pasta escolhida no .env ou fallback local.
 testes_anexos_path = config("TESTES_ANEXOS_PATH", default=None)
-testes_storage = FileSystemStorage(location=testes_anexos_path) if testes_anexos_path else None
+testes_storage = ResilientFileSystemStorage(location=testes_anexos_path)
 
 
 class Colaborador(models.Model):

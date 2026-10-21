@@ -37,8 +37,8 @@ def is_assai_store(loja_name: Any) -> bool:
     """Verifica se a loja/filial pertence à rede Assaí / Sendas."""
     if not loja_name:
         return False
-    l = str(loja_name).lower()
-    return 'assai' in l or 'sendas' in l
+    import re
+    return bool(re.search(r'assa[ií]|sendas', str(loja_name), re.IGNORECASE))
 
 
 def apply_assai_atestado_abono(df_classified: pd.DataFrame) -> pd.DataFrame:
@@ -346,7 +346,7 @@ def get_store_quadro(loja: str, quadros_map: Dict[str, int]) -> int:
 
     import re
 
-    is_assai = 'assai' in l_clean or 'sendas' in l_clean
+    is_assai = bool(re.search(r'assa[ií]|sendas', l_clean, re.IGNORECASE))
     is_atacadao = 'atacadao' in l_clean
 
     l_nums = set(re.findall(r'\b\d+\b', l_clean))
@@ -364,7 +364,7 @@ def get_store_quadro(loja: str, quadros_map: Dict[str, int]) -> int:
 
     for k, v in quadros_map.items():
         k_clean = clean_store_text(k)
-        k_assai = 'assai' in k_clean or 'sendas' in k_clean
+        k_assai = bool(re.search(r'assa[ií]|sendas', k_clean, re.IGNORECASE))
         k_atacadao = 'atacadao' in k_clean
 
         # Respeita bandeira da rede (não mistura Assaí com Atacadão)

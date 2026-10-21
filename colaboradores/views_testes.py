@@ -1,8 +1,11 @@
 from datetime import date, timedelta, datetime
 import os
 import mimetypes
+import logging
 from io import BytesIO
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404
@@ -65,14 +68,21 @@ def testes_list(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        teste = TestePromocao.objects.create(
-            colaborador=colaborador,
-            data_inicio=data_inicio,
-            cargo_teste=cargo_teste,
-            status="pendente",
-            anexo=anexo_file,
-            criado_por=request.user.username if request.user.is_authenticated else "Sistema",
-        )
+        try:
+            teste = TestePromocao.objects.create(
+                colaborador=colaborador,
+                data_inicio=data_inicio,
+                cargo_teste=cargo_teste,
+                status="pendente",
+                anexo=anexo_file,
+                criado_por=request.user.username if request.user.is_authenticated else "Sistema",
+            )
+        except Exception as e:
+            logger.error(f"[TESTES] Erro ao cadastrar teste de promoção para {colaborador}: {e}", exc_info=True)
+            return Response(
+                {"error": f"Erro ao processar o cadastro ou salvar o anexo: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         return Response(TestePromocaoSerializer(teste).data, status=status.HTTP_201_CREATED)
 
@@ -678,9 +688,33 @@ def teste_anexo_download(request, pk):
     if not teste.anexo:
         raise Http404("Nenhum arquivo anexado a este teste de promoção.")
 
-    # Se o arquivo não existir fisicamente no local indicado
-    file_path = teste.anexo.path
-    if not os.path.exists(file_path):
+    # Tenta resolver o caminho físico do anexo com segurança
+    file_path = None
+    try:
+        file_path = teste.anexo.path
+    except Exception as e:
+        logger.warning(f"[ANEXO] Falha ao resolver anexo.path para o teste {pk}: {e}")
+
+    file_found = False
+    if file_path:
+        try:
+            if os.path.exists(file_path):
+                file_found = True
+        except OSError:
+            file_found = False
+
+    # Se não encontrado no caminho primário, verifica na pasta local de fallback (media/testes)
+    if not file_found:
+        filename_only = os.path.basename(teste.anexo.name)
+        fallback_path = os.path.join(settings.MEDIA_ROOT, "testes", filename_only)
+        try:
+            if os.path.exists(fallback_path):
+                file_path = fallback_path
+                file_found = True
+        except OSError:
+            file_found = False
+
+    if not file_found or not file_path:
         raise Http404("Arquivo físico do anexo não foi encontrado no servidor.")
 
     content_type, _ = mimetypes.guess_type(file_path)

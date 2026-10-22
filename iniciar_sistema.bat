@@ -30,13 +30,21 @@ if defined REMOTE_URL (
     )
 )
 
+rem 1.2 Atualizacao automatica do codigo via GitHub
+echo [1/5] Verificando e baixando atualizacoes do GitHub...
+git pull origin main
+if errorlevel 1 (
+    echo [AVISO] Nao foi possivel sincronizar com o GitHub no momento (sem conexao ou conflito local). Continuando com a versao local...
+)
+echo.
+
 rem 2. Executa backup preventivo antes de iniciar o sistema
-echo [1/4] Realizando copia de seguranca preventiva do banco de dados...
+echo [2/5] Realizando copia de seguranca preventiva do banco de dados...
 python manage.py backup_db
 echo.
 
 rem 3. Executa migracoes pendentes do banco
-echo [2/4] Verificando e aplicando migracoes de dados...
+echo [3/5] Verificando e aplicando migracoes de dados...
 python manage.py migrate --noinput
 echo.
 
@@ -53,7 +61,7 @@ if %ERRORLEVEL% EQU 0 (
 )
 
 rem 4. Checagem de porta
-echo [3/4] Verificando se a porta %BACKEND_PORT% esta livre...
+echo [4/5] Verificando se a porta %BACKEND_PORT% esta livre...
 netstat -ano | findstr "LISTENING" | findstr ":%BACKEND_PORT%" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     echo [AVISO] Ja existe um processo escutando na porta %BACKEND_PORT%.
@@ -61,7 +69,7 @@ if %ERRORLEVEL% EQU 0 (
 )
 
 rem 5. Inicia o Backend Waitress
-echo [4/4] Iniciando Servidor Web Backend (%AMBIENTE% - Porta %BACKEND_PORT%)...
+echo [5/5] Iniciando Servidor Web Backend (%AMBIENTE% - Porta %BACKEND_PORT%)...
 start "Django - %AMBIENTE% - Porta %BACKEND_PORT%" /D "%CD%" cmd /k "call venv\Scripts\activate.bat && python -m waitress --listen=0.0.0.0:%BACKEND_PORT% --threads=12 core.wsgi:application || pause"
 
 rem Aguarda 3 segundos

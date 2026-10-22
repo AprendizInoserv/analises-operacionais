@@ -347,15 +347,15 @@ export default function FechamentoButanta({ showToast, onVoltar }) {
         <div className="butanta-header-actions">
           {/* Pill de seleção de Shopping */}
           <div className="butanta-shopping-pill" title="Shopping selecionado para visualização">
-            <Store size={15} style={{ color: 'var(--accent-cyan)' }} />
+            <Store size={15} style={{ color: 'var(--accent-teal)' }} />
             <select 
               value={filtroShopping} 
               onChange={(e) => setFiltroShopping(e.target.value)}
-              style={{ background: 'transparent', border: 'none', color: '#fff', fontWeight: 600, outline: 'none', cursor: 'pointer' }}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', fontWeight: 600, outline: 'none', cursor: 'pointer' }}
             >
-              <option value="todos" style={{ background: '#0f172a' }}>Todos os Shoppings</option>
+              <option value="todos" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Todos os Shoppings</option>
               {shoppings.map(s => (
-                <option key={s.id} value={s.nome} style={{ background: '#0f172a' }}>{s.nome}</option>
+                <option key={s.id} value={s.nome} style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>{s.nome}</option>
               ))}
             </select>
           </div>
@@ -490,7 +490,7 @@ export default function FechamentoButanta({ showToast, onVoltar }) {
       <section className="butanta-card">
         <div className="butanta-card-header">
           <div className="butanta-card-title">
-            <Wand2 size={18} style={{ color: 'var(--accent-cyan)' }} />
+            <Wand2 size={18} style={{ color: 'var(--accent-teal)' }} />
             <span>Processador Inteligente de Mensagens</span>
           </div>
           <span className="badge-tag-active" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>
@@ -501,13 +501,13 @@ export default function FechamentoButanta({ showToast, onVoltar }) {
         <div className="butanta-card-body">
           {/* Barra de seleção do Shopping deste Quadro */}
           <div className="butanta-input-shopping-bar">
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.875rem', fontWeight: 600, color: '#f8fafc' }}>
-              <Store size={16} style={{ color: 'var(--accent-cyan)' }} />
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+              <Store size={16} style={{ color: 'var(--accent-teal)' }} />
               <span>Shopping deste Quadro:</span>
             </label>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '240px' }}>
               <select 
-                value={targetShopping}
+                value={targetShopping} 
                 onChange={(e) => setTargetShopping(e.target.value)}
                 className="form-select"
                 style={{ flex: 1, padding: '7px 12px', fontSize: '0.875rem' }}
@@ -529,7 +529,7 @@ export default function FechamentoButanta({ showToast, onVoltar }) {
           </div>
 
           {/* Textarea para colar mensagem */}
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '8px' }}>
+          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
             Cole as mensagens de escala/presença recebidas (WhatsApp, e-mail ou relatórios):
           </label>
           <textarea
@@ -630,7 +630,7 @@ export default function FechamentoButanta({ showToast, onVoltar }) {
             <div className="butanta-filter-group">
               {/* Campo de Busca */}
               <div className="butanta-search-wrapper">
-                <Search size={14} style={{ position: 'absolute', left: '10px', color: '#94a3b8' }} />
+                <Search size={14} style={{ position: 'absolute', left: '10px', color: 'var(--text-muted)' }} />
                 <input 
                   type="text" 
                   value={buscaTexto}
@@ -758,61 +758,51 @@ export default function FechamentoButanta({ showToast, onVoltar }) {
                         {rec.data_formatada}
                       </td>
                       <td>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-cyan)', fontWeight: 600 }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-teal)', fontWeight: 600 }}>
                           <Store size={14} />
                           {rec.shopping}
                         </span>
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          padding: '3px 10px',
-                          borderRadius: '999px',
-                          fontSize: '0.75rem',
-                          fontWeight: 600,
-                          background: rec.turno === 'Manhã' ? 'rgba(245, 158, 11, 0.15)' : rec.turno === 'Tarde' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(168, 85, 247, 0.15)',
-                          color: rec.turno === 'Manhã' ? '#fbbf24' : rec.turno === 'Tarde' ? '#38bdf8' : '#c084fc',
-                          border: `1px solid ${rec.turno === 'Manhã' ? 'rgba(245, 158, 11, 0.3)' : rec.turno === 'Tarde' ? 'rgba(56, 189, 248, 0.3)' : 'rgba(168, 85, 247, 0.3)'}`
-                        }}>
+                        <span className={`badge-turno ${rec.turno === 'Manhã' ? 'badge-manha' : rec.turno === 'Tarde' ? 'badge-tarde' : 'badge-noite'}`}>
                           {rec.turno}
                         </span>
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <span className="currency-cell" style={{ color: '#34d399', fontWeight: 700, fontSize: '0.925rem' }}>
+                        <span className="currency-cell" style={{ color: '#16a34a', fontWeight: 700, fontSize: '0.925rem' }}>
                           {rec.presentes}
                         </span>
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <span className="currency-cell" style={{ color: '#60a5fa', fontWeight: 600 }}>
+                        <span className="currency-cell" style={{ color: '#2563eb', fontWeight: 600 }}>
                           {rec.folgas}
                         </span>
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         {rec.faltas > 0 ? (
-                          <span className="currency-cell highlight" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', padding: '3px 8px', borderRadius: '4px', fontWeight: 700 }}>
+                          <span className="currency-cell highlight" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#dc2626', padding: '3px 8px', borderRadius: '4px', fontWeight: 700 }}>
                             {rec.faltas}
                           </span>
                         ) : (
-                          <span className="currency-cell" style={{ color: '#71717a' }}>0</span>
+                          <span className="currency-cell" style={{ color: 'var(--text-muted)' }}>0</span>
                         )}
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         {rec.atestados > 0 ? (
-                          <span className="currency-cell" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', padding: '3px 8px', borderRadius: '4px', fontWeight: 700 }}>
+                          <span className="currency-cell" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#d97706', padding: '3px 8px', borderRadius: '4px', fontWeight: 700 }}>
                             {rec.atestados}
                           </span>
                         ) : (
-                          <span className="currency-cell" style={{ color: '#71717a' }}>0</span>
+                          <span className="currency-cell" style={{ color: 'var(--text-muted)' }}>0</span>
                         )}
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <span className="currency-cell" style={{ color: rec.apoio_noite > 0 ? '#c084fc' : '#71717a', fontWeight: rec.apoio_noite > 0 ? 700 : 400 }}>
+                        <span className="currency-cell" style={{ color: rec.apoio_noite > 0 ? '#9333ea' : 'var(--text-muted)', fontWeight: rec.apoio_noite > 0 ? 700 : 400 }}>
                           {rec.apoio_noite}
                         </span>
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <span className="currency-cell" style={{ color: rec.banheirista_apoio > 0 ? '#2dd4bf' : '#71717a', fontWeight: rec.banheirista_apoio > 0 ? 700 : 400 }}>
+                        <span className="currency-cell" style={{ color: rec.banheirista_apoio > 0 ? '#0d9488' : 'var(--text-muted)', fontWeight: rec.banheirista_apoio > 0 ? 700 : 400 }}>
                           {rec.banheirista_apoio}
                         </span>
                       </td>
@@ -867,8 +857,8 @@ export default function FechamentoButanta({ showToast, onVoltar }) {
         {activeTableTab === 'tabDiario' && (
           <div>
             <div style={{ padding: '12px 18px', background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: '8px', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Info size={18} style={{ color: 'var(--accent-cyan)', flexShrink: 0 }} />
-              <span style={{ fontSize: '0.85rem', color: '#cbd5e1' }}>
+              <Info size={18} style={{ color: 'var(--accent-teal)', flexShrink: 0 }} />
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                 Esta tabela soma automaticamente os turnos de cada dia (Manhã + Tarde + Noite). Use o botão "Excel" acima para exportar o relatório pronto.
               </span>
             </div>
@@ -903,47 +893,47 @@ export default function FechamentoButanta({ showToast, onVoltar }) {
                         <td style={{ fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
                           {d.data_formatada}
                         </td>
-                        <td style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}>{d.shopping}</td>
+                        <td style={{ color: 'var(--accent-teal)', fontWeight: 600 }}>{d.shopping}</td>
                         <td style={{ textAlign: 'center' }}>
                           <span className="badge-tag-active" style={{ fontSize: '0.72rem', padding: '2px 8px' }}>
                             Consolidado
                           </span>
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <span className="currency-cell" style={{ color: '#34d399', fontWeight: 700, fontSize: '0.925rem' }}>
+                          <span className="currency-cell" style={{ color: '#16a34a', fontWeight: 700, fontSize: '0.925rem' }}>
                             {d.presentes}
                           </span>
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <span className="currency-cell" style={{ color: '#60a5fa', fontWeight: 600 }}>
+                          <span className="currency-cell" style={{ color: '#2563eb', fontWeight: 600 }}>
                             {d.folgas}
                           </span>
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           {d.faltas > 0 ? (
-                            <span className="currency-cell highlight" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', padding: '3px 8px', borderRadius: '4px', fontWeight: 700 }}>
+                            <span className="currency-cell highlight" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#dc2626', padding: '3px 8px', borderRadius: '4px', fontWeight: 700 }}>
                               {d.faltas}
                             </span>
                           ) : (
-                            <span className="currency-cell" style={{ color: '#71717a' }}>0</span>
+                            <span className="currency-cell" style={{ color: 'var(--text-muted)' }}>0</span>
                           )}
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           {d.atestados > 0 ? (
-                            <span className="currency-cell" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', padding: '3px 8px', borderRadius: '4px', fontWeight: 700 }}>
+                            <span className="currency-cell" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#d97706', padding: '3px 8px', borderRadius: '4px', fontWeight: 700 }}>
                               {d.atestados}
                             </span>
                           ) : (
-                            <span className="currency-cell" style={{ color: '#71717a' }}>0</span>
+                            <span className="currency-cell" style={{ color: 'var(--text-muted)' }}>0</span>
                           )}
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <span className="currency-cell" style={{ color: d.apoio_noite > 0 ? '#c084fc' : '#71717a', fontWeight: d.apoio_noite > 0 ? 700 : 400 }}>
+                          <span className="currency-cell" style={{ color: d.apoio_noite > 0 ? '#9333ea' : 'var(--text-muted)', fontWeight: d.apoio_noite > 0 ? 700 : 400 }}>
                             {d.apoio_noite}
                           </span>
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <span className="currency-cell" style={{ color: d.banheirista_apoio > 0 ? '#2dd4bf' : '#71717a', fontWeight: d.banheirista_apoio > 0 ? 700 : 400 }}>
+                          <span className="currency-cell" style={{ color: d.banheirista_apoio > 0 ? '#0d9488' : 'var(--text-muted)', fontWeight: d.banheirista_apoio > 0 ? 700 : 400 }}>
                             {d.banheirista_apoio}
                           </span>
                         </td>
@@ -970,7 +960,7 @@ export default function FechamentoButanta({ showToast, onVoltar }) {
                   {/* Linha de Totais Gerais Consolidados (estilo regional Carrefour) */}
                   {dailySummary.length > 0 && (
                     <tr className="regional-header-row" style={{ borderTop: '2px solid var(--border-card)' }}>
-                      <td colSpan="3" style={{ padding: '14px 16px', color: '#f8fafc', fontWeight: 700, letterSpacing: '0.04em' }}>
+                      <td colSpan="3" style={{ padding: '14px 16px', color: 'var(--text-primary)', fontWeight: 700, letterSpacing: '0.04em' }}>
                         TOTAIS GERAIS CONSOLIDADOS
                       </td>
                       <td style={{ textAlign: 'center' }}>
@@ -1017,9 +1007,9 @@ export default function FechamentoButanta({ showToast, onVoltar }) {
       {/* ============================================================= */}
       {/* 5. FOOTER INFORMATIVO (EXATO DO PROJETO BUTTAN)                */}
       {/* ============================================================= */}
-      <footer style={{ textAlign: 'center', padding: '20px 0 10px', color: '#94a3b8', fontSize: '0.85rem' }}>
+      <footer style={{ textAlign: 'center', padding: '20px 0 10px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
         <p>Quadro de Funcionários • Executando Localmente com Python & SQLite Seguro</p>
-        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
           Persistência local ativada • Seus dados ficam salvos com segurança no seu computador.
         </span>
       </footer>
@@ -1042,11 +1032,11 @@ export default function FechamentoButanta({ showToast, onVoltar }) {
 
             <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '4px' }}>
               {reviewData.unexpected_items && reviewData.unexpected_items.length > 0 && (
-                <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '8px', padding: '14px 18px', marginBottom: '18px' }}>
-                  <strong style={{ color: '#fbbf24', display: 'block', marginBottom: '4px' }}>
+                <div style={{ background: 'var(--accent-amber-bg)', border: '1px solid var(--accent-amber)', borderRadius: '8px', padding: '14px 18px', marginBottom: '18px' }}>
+                  <strong style={{ color: 'var(--accent-amber)', display: 'block', marginBottom: '4px' }}>
                     Linhas não reconhecidas ou inesperadas detectadas!
                   </strong>
-                  <p style={{ fontSize: '0.85rem', color: '#cbd5e1', margin: 0 }}>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
                     O analisador identificou informações que não se enquadram nas categorias padrão. Você pode definir a categoria correta para cada linha abaixo antes de salvar.
                   </p>
                 </div>
@@ -1055,7 +1045,7 @@ export default function FechamentoButanta({ showToast, onVoltar }) {
               {/* Tabela de Itens Inesperados para Ajuste */}
               {reviewData.unexpected_items && reviewData.unexpected_items.length > 0 && (
                 <div style={{ marginBottom: '22px' }}>
-                  <h4 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#f8fafc', marginBottom: '8px' }}>
+                  <h4 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
                     Itens que precisam de sua atenção / Edição rápida:
                   </h4>
                   <div className="table-container">
@@ -1071,7 +1061,7 @@ export default function FechamentoButanta({ showToast, onVoltar }) {
                       <tbody>
                         {reviewData.unexpected_items.map((item, idx) => (
                           <tr key={idx}>
-                            <td style={{ color: '#e2e8f0', fontWeight: 500 }}>{item.raw_text}</td>
+                            <td style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{item.raw_text}</td>
                             <td style={{ textAlign: 'center' }}>
                               <input 
                                 type="number" 
@@ -1098,7 +1088,7 @@ export default function FechamentoButanta({ showToast, onVoltar }) {
                                 <option value="ignorar">Ignorar Linha</option>
                               </select>
                             </td>
-                            <td style={{ color: 'var(--accent-cyan)' }}>{item.turno}</td>
+                            <td style={{ color: 'var(--accent-teal)' }}>{item.turno}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1108,17 +1098,17 @@ export default function FechamentoButanta({ showToast, onVoltar }) {
               )}
 
               {/* Turnos identificados */}
-              <h4 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#f8fafc', marginBottom: '10px' }}>
+              <h4 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '10px' }}>
                 Turnos Processados Prontos para Gravar:
               </h4>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px' }}>
                 {reviewData.records.map((r, idx) => (
-                  <div key={idx} style={{ background: 'rgba(30, 41, 59, 0.6)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '14px' }}>
-                    <div style={{ fontWeight: 600, color: 'var(--accent-cyan)', marginBottom: '4px' }}>
+                  <div key={idx} style={{ background: 'var(--bg-card-hover)', border: '1px solid var(--border-card)', borderRadius: '10px', padding: '14px' }}>
+                    <div style={{ fontWeight: 600, color: 'var(--accent-teal)', marginBottom: '4px' }}>
                       {r.date} — {r.turno}
                     </div>
-                    <div style={{ fontSize: '0.8rem', color: '#94a3b8', lineHeight: 1.5 }}>
-                      Presentes: <strong style={{ color: '#34d399' }}>{r.presentes}</strong> • Folgas: {r.folgas} • Faltas: <strong style={{ color: '#f87171' }}>{r.faltas}</strong><br />
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                      Presentes: <strong style={{ color: 'var(--accent-emerald)' }}>{r.presentes}</strong> • Folgas: {r.folgas} • Faltas: <strong style={{ color: 'var(--accent-rose)' }}>{r.faltas}</strong><br />
                       Atestados: {r.atestados} • Apoio: {r.apoio_noite} • Banheirista: {r.banheirista_apoio}
                     </div>
                   </div>
@@ -1319,7 +1309,7 @@ export default function FechamentoButanta({ showToast, onVoltar }) {
             </p>
 
             {/* Formulário para adicionar shopping */}
-            <form onSubmit={handleAddShopping} style={{ marginBottom: '22px', background: '#121212', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-card)' }}>
+            <form onSubmit={handleAddShopping} style={{ marginBottom: '22px', background: 'var(--bg-card-hover)', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-card)' }}>
               <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: '8px' }}>
                 Cadastrar Novo Shopping:
               </label>
@@ -1355,10 +1345,10 @@ export default function FechamentoButanta({ showToast, onVoltar }) {
                 <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>Nenhum shopping cadastrado.</div>
               ) : (
                 shoppings.map(s => (
-                  <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#161616', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-card)' }}>
+                  <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-card-hover)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-card)' }}>
                     <div>
-                      <div style={{ fontWeight: 600, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Store size={15} color="var(--accent-cyan)" />
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Store size={15} color="var(--accent-teal)" />
                         <span>{s.nome}</span>
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>

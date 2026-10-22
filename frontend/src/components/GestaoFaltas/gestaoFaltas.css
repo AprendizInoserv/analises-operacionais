@@ -18,6 +18,7 @@
   --accent-teal-dark: #244e53;
   --accent-teal-bg: rgba(89, 159, 166, 0.12);
   --accent-teal-glow: rgba(89, 159, 166, 0.2);
+  --accent-cyan: #0284c7;
 
   /* Active Pill */
   --pill-active-bg: #3b7b82;
@@ -72,6 +73,7 @@
   --accent-teal-dark: #457e84;
   --accent-teal-bg: rgba(89, 159, 166, 0.14);
   --accent-teal-glow: rgba(89, 159, 166, 0.25);
+  --accent-cyan: #38bdf8;
 
   /* Active Pill */
   --pill-active-bg: #599fa6;
@@ -907,10 +909,11 @@
   gap: 16px;
   margin-bottom: 24px;
   padding: 18px 22px;
-  background: rgba(30, 41, 59, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
   border-radius: var(--radius-lg);
-  backdrop-filter: blur(12px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .butanta-header-brand {
@@ -928,19 +931,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.3);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.25);
 }
 
 .butanta-brand-title {
   font-size: 1.35rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: var(--text-primary);
   line-height: 1.2;
 }
 
 .butanta-brand-subtitle {
   font-size: 0.825rem;
-  color: #94a3b8;
+  color: var(--text-secondary);
   margin-top: 2px;
 }
 
@@ -957,10 +960,11 @@
   gap: 8px;
   padding: 7px 14px;
   border-radius: 10px;
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #f8fafc;
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border-card);
+  color: var(--text-primary);
   font-size: 13px;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .butanta-status-pill {
@@ -971,9 +975,13 @@
   border-radius: 9999px;
   background: rgba(34, 197, 94, 0.12);
   border: 1px solid rgba(34, 197, 94, 0.25);
-  color: #4ade80;
+  color: #16a34a;
   font-size: 12.5px;
   font-weight: 600;
+}
+
+.dark .butanta-status-pill {
+  color: #4ade80;
 }
 
 .butanta-pulse-dot {
@@ -1000,20 +1008,21 @@
 }
 
 .butanta-kpi-card {
-  background: rgba(30, 41, 59, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
   border-radius: 12px;
   padding: 16px 18px;
   display: flex;
   align-items: center;
   gap: 14px;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .butanta-kpi-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
-  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  border-color: var(--border-card-hover);
 }
 
 .butanta-kpi-icon {
@@ -1026,13 +1035,26 @@
   flex-shrink: 0;
 }
 
-.butanta-kpi-card.highlight .butanta-kpi-icon { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
-.butanta-kpi-card.success .butanta-kpi-icon { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
-.butanta-kpi-card.info .butanta-kpi-icon { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
-.butanta-kpi-card.danger .butanta-kpi-icon { background: rgba(239, 68, 68, 0.15); color: #f87171; }
-.butanta-kpi-card.warning .butanta-kpi-icon { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
-.butanta-kpi-card.purple .butanta-kpi-icon { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
-.butanta-kpi-card.teal .butanta-kpi-icon { background: rgba(20, 184, 166, 0.15); color: #2dd4bf; }
+.butanta-kpi-card.highlight .butanta-kpi-icon { background: rgba(56, 189, 248, 0.15); color: #0284c7; }
+.dark .butanta-kpi-card.highlight .butanta-kpi-icon { color: #38bdf8; }
+
+.butanta-kpi-card.success .butanta-kpi-icon { background: rgba(34, 197, 94, 0.15); color: #16a34a; }
+.dark .butanta-kpi-card.success .butanta-kpi-icon { color: #22c55e; }
+
+.butanta-kpi-card.info .butanta-kpi-icon { background: rgba(59, 130, 246, 0.15); color: #2563eb; }
+.dark .butanta-kpi-card.info .butanta-kpi-icon { color: #60a5fa; }
+
+.butanta-kpi-card.danger .butanta-kpi-icon { background: rgba(239, 68, 68, 0.15); color: #dc2626; }
+.dark .butanta-kpi-card.danger .butanta-kpi-icon { color: #f87171; }
+
+.butanta-kpi-card.warning .butanta-kpi-icon { background: rgba(245, 158, 11, 0.15); color: #d97706; }
+.dark .butanta-kpi-card.warning .butanta-kpi-icon { color: #fbbf24; }
+
+.butanta-kpi-card.purple .butanta-kpi-icon { background: rgba(168, 85, 247, 0.15); color: #9333ea; }
+.dark .butanta-kpi-card.purple .butanta-kpi-icon { color: #c084fc; }
+
+.butanta-kpi-card.teal .butanta-kpi-icon { background: rgba(20, 184, 166, 0.15); color: #0d9488; }
+.dark .butanta-kpi-card.teal .butanta-kpi-icon { color: #2dd4bf; }
 
 .butanta-kpi-info {
   display: flex;
@@ -1042,31 +1064,32 @@
 .butanta-kpi-label {
   font-size: 0.775rem;
   font-weight: 500;
-  color: #94a3b8;
+  color: var(--text-secondary);
   margin-bottom: 2px;
 }
 
 .butanta-kpi-value {
   font-size: 1.45rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: var(--text-primary);
   line-height: 1.2;
 }
 
 /* Card Genérico BUTtan */
 .butanta-card {
-  background: rgba(30, 41, 59, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
   border-radius: 16px;
   margin-bottom: 24px;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .butanta-card-header {
   padding: 16px 22px;
-  background: rgba(15, 23, 42, 0.6);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card-hover);
+  border-bottom: 1px solid var(--border-card);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1080,7 +1103,7 @@
   gap: 10px;
   font-weight: 600;
   font-size: 15px;
-  color: #f8fafc;
+  color: var(--text-primary);
 }
 
 .butanta-card-body {
@@ -1091,8 +1114,8 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border-card);
   border-radius: 10px;
   padding: 12px 18px;
   margin-bottom: 18px;
@@ -1104,9 +1127,9 @@
   min-height: 120px;
   padding: 14px 16px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(15, 23, 42, 0.7);
-  color: #f8fafc;
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+  color: var(--text-primary);
   font-family: 'Consolas', 'Courier New', monospace;
   font-size: 13.5px;
   line-height: 1.5;
@@ -1116,8 +1139,8 @@
 
 .butanta-textarea:focus {
   outline: none;
-  border-color: #38bdf8;
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+  border-color: var(--accent-teal);
+  box-shadow: 0 0 0 3px var(--accent-teal-glow);
 }
 
 .butanta-controls-row {
@@ -1140,7 +1163,7 @@
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   cursor: pointer;
   user-select: none;
 }
@@ -1148,29 +1171,29 @@
 .butanta-checkbox-label input[type="checkbox"] {
   width: 16px;
   height: 16px;
-  accent-color: #38bdf8;
+  accent-color: var(--accent-teal);
   cursor: pointer;
 }
 
 /* Toolbar da Tabela */
 .butanta-table-toolbar {
   padding: 16px 22px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--border-card);
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 16px;
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--bg-card-hover);
 }
 
 .butanta-tabs-nav {
   display: flex;
   gap: 6px;
-  background: rgba(15, 23, 42, 0.8);
+  background: var(--bg-card);
   padding: 4px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-card);
 }
 
 .butanta-tab-btn {
@@ -1181,17 +1204,22 @@
   border-radius: 8px;
   border: none;
   background: transparent;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
+.butanta-tab-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-card-hover);
+}
+
 .butanta-tab-btn.active {
-  background: rgba(56, 189, 248, 0.15);
-  color: #38bdf8;
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: var(--accent-teal-bg);
+  color: var(--accent-teal);
+  border: 1px solid var(--accent-teal-glow);
 }
 
 .butanta-toolbar-actions {
@@ -1217,16 +1245,17 @@
 .butanta-search-wrapper input {
   padding: 7px 12px 7px 32px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(15, 23, 42, 0.7);
-  color: #f8fafc;
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+  color: var(--text-primary);
   font-size: 13px;
   width: 200px;
 }
 
 .butanta-search-wrapper input:focus {
   outline: none;
-  border-color: #38bdf8;
+  border-color: var(--accent-teal);
+  box-shadow: 0 0 0 2px var(--accent-teal-glow);
 }
 
 .butanta-export-group {
@@ -1248,20 +1277,32 @@
 
 .badge-manha {
   background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
+  color: #d97706;
   border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.dark .badge-manha {
+  color: #fbbf24;
 }
 
 .badge-tarde {
   background: rgba(56, 189, 248, 0.15);
-  color: #38bdf8;
+  color: #0284c7;
   border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.dark .badge-tarde {
+  color: #38bdf8;
 }
 
 .badge-noite {
   background: rgba(168, 85, 247, 0.15);
-  color: #c084fc;
+  color: #9333ea;
   border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.dark .badge-noite {
+  color: #c084fc;
 }
 
 .form-select-sm, .form-input-sm {

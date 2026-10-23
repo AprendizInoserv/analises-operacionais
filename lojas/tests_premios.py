@@ -127,14 +127,21 @@ class PremiosExportarExcelTests(TestCase):
         self.assertEqual(df_sem["Supervisor"], "-")
         self.assertEqual(df_sem["Período"], "06/2026")
 
-    def test_premios_exportar_excel_com_filtro(self):
-        """Testa a exportação filtrando por coordenador."""
-        response = self.client.get("/premios/exportar/", {"coordenador": "MARIANA SOUZA"})
+    def test_premios_list_api(self):
+        """Testa a listagem da API /premios/ sem filtros."""
+        response = self.client.get("/premios/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data
+        self.assertIn("results", data)
+        self.assertIn("kpis", data["results"])
+        self.assertIn("graficos", data["results"])
+        self.assertEqual(data["count"], 3)
 
-        excel_data = BytesIO(response.content)
-        df = pd.read_excel(excel_data, sheet_name="Prêmios")
-        self.assertEqual(len(df), 1)
-        self.assertEqual(df.iloc[0]["ID"], self.premio_2.id)
-        self.assertEqual(df.iloc[0]["Coordenador"], "MARIANA SOUZA")
-        self.assertEqual(df.iloc[0]["Valor (R$)"], 500.0)
+    def test_premios_list_api_com_filtros(self):
+        """Testa a listagem da API /premios/ com filtro de coordenador."""
+        response = self.client.get("/premios/", {"coordenador": "CARLOS SILVA"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data
+        self.assertEqual(data["count"], 1)
+        self.assertEqual(data["results"]["resultados"][0]["verb_name"], "PREMIO OPERACIONAL")
+

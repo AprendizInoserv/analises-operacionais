@@ -147,6 +147,10 @@ def premios_list_api(request):
     calcula as métricas financeiras consolidadas (Valor Gasto, Quantidade e Preço Médio).
     """
     queryset = _filtrar_premios_queryset(request)
+    params = getattr(request, "query_params", request.GET)
+    coordenador_val = params.get("coordenador")
+    loja_val = params.get("loja")
+    supervisor_val = params.get("supervisor")
 
     # 1. Cálculo de KPIs
     # Quantidade total de solicitações

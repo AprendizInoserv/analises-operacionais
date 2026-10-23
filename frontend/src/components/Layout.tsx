@@ -2,6 +2,7 @@ import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import PerfilEditModal from './Usuarios/PerfilEditModal';
+import AvisoModalDia from './Avisos/AvisoModalDia';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from './ui/sidebar';
 import { useTheme } from '../context/ThemeContext';
 import { Sun, Moon } from 'lucide-react';
@@ -99,6 +100,9 @@ export default function Layout({ isAuthenticated, username, email, onLogout, rol
   } else if (path === 'usuarios') {
     sector = 'Configurações';
     pageName = 'Usuários';
+  } else if (path === 'avisos') {
+    sector = 'Configurações';
+    pageName = 'Avisos';
   } else {
     sector = 'Geral';
     pageName = 'Início';
@@ -184,6 +188,9 @@ export default function Layout({ isAuthenticated, username, email, onLogout, rol
           }}
         />
       )}
+
+      {/* Alerta/Comunicado Diário no Centro da Tela para Todos os Usuários */}
+      <AvisoModalDia />
     </SidebarProvider>
   );
 }

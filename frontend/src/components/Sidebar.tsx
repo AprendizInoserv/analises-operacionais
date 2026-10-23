@@ -21,7 +21,8 @@ import {
   Building2,
   ShieldCheck,
   History,
-  Sliders
+  Sliders,
+  Bell
 } from 'lucide-react';
 import { logoBase64 } from '../assets/logoBase64';
 import { 
@@ -58,7 +59,7 @@ interface SidebarProps {
  * Utiliza o visual e componentes oficiais do Shadcn UI (grupos, switcher de workspace,
  * rodapé com dados do perfil e submenus colapsáveis).
  */
-export default function Sidebar({ username = 'Usuário', email = '', onLogout, permissions, onOpenProfile }: SidebarProps) {
+export default function Sidebar({ username = 'Usuário', email = '', onLogout, role, permissions, onOpenProfile }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { open } = useSidebar();
@@ -535,6 +536,22 @@ export default function Sidebar({ username = 'Usuário', email = '', onLogout, p
                     <Link to="/importacoes">
                       <Database className="h-5 w-5 shrink-0" />
                       {open && <span className="truncate">Importações</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+
+              {/* Avisos Corporativos - Exclusivo Administrador */}
+              {role?.toLowerCase() === 'administrador' && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={location.pathname === '/avisos'}
+                    title={!open ? "Avisos" : undefined}
+                  >
+                    <Link to="/avisos">
+                      <Bell className="h-5 w-5 shrink-0 text-amber-500" />
+                      {open && <span className="truncate">Avisos</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

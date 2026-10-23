@@ -12,9 +12,12 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 
+from django.db.models import Q
+from django.utils import timezone
 from core.network_utils import get_frontend_base_url
 from .permissions import IsAdministrador
-from .serializers import UsuarioSerializer, UsuarioCreateSerializer
+from .models import Aviso
+from .serializers import UsuarioSerializer, UsuarioCreateSerializer, AvisoSerializer
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated, IsAdministrador])
@@ -515,3 +518,136 @@ def role_create(request):
         "id": group.id,
         "name": group.name
     }, status=status.HTTP_201_CREATED)
+
+
+# ==============================================================================
+# MÓDULO DE AVISOS E COMUNICADOS
+# ==============================================================================
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def avisos_hoje_api(request):
+    """
+    Retorna os avisos ativos para o dia de hoje.
+    Acessível por todos os usuários autenticados para exibição no primeiro login do dia.
+    """
+    hoje = timezone.localdate()
+    avisos = Aviso.objects.filter(
+        ativo=True,
+        data_inicio__lte=hoje,
+        data_fim__gte=hoje
+    ).select_related("criado_por").order_by("-id")
+    serializer = AvisoSerializer(avisos, many=True)
+    return Response({"avisos": serializer.data})
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated, IsAdministrador])
+def avisos_list_create_api(request):
+    """
+    Lista todos os avisos cadastrados (com suporte a filtros por status e busca)
+    ou cadastra um novo aviso agendado.
+    Restrito a administradores.
+    """
+    if request.method == "GET":
+        queryset = Aviso.objects.all().select_related("criado_por").order_by("-data_inicio", "-id")
+
+        status_filtro = request.query_params.get("status")
+        hoje = timezone.localdate()
+        if status_filtro == "ativo":
+            queryset = queryset.filter(ativo=True, data_inicio__lte=hoje, data_fim__gte=hoje)
+        elif status_filtro == "agendado":
+            queryset = queryset.filter(ativo=True, data_inicio__gt=hoje)
+        elif status_filtro == "expirado":
+            queryset = queryset.filter(data_fim__lt=hoje)
+        elif status_filtro == "inativo":
+            queryset = queryset.filter(ativo=False)
+
+        search = request.query_params.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(titulo__icontains=search) | Q(conteudo__icontains=search)
+            )
+
+        serializer = AvisoSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    elif request.method == "POST":
+        serializer = AvisoSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(criado_por=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["GET", "PUT", "PATCH", "DELETE"])
+@permission_classes([IsAuthenticated, IsAdministrador])
+def aviso_detail_api(request, pk):
+    """
+    Recupera, atualiza ou exclui um aviso específico.
+    Restrito a administradores.
+    """
+    try:
+        aviso = Aviso.objects.get(pk=pk)
+    except Aviso.DoesNotExist:
+        return Response({"error": "Aviso não encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == "GET":
+        return Response(AvisoSerializer(aviso).data)
+    elif request.method in ["PUT", "PATCH"]:
+        serializer = AvisoSerializer(aviso, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    elif request.method == "DELETE":
+        aviso.delete()
+        return Response({"success": True, "message": "Aviso excluído com sucesso."})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated, IsAdministrador])
+def aviso_reenviar_api(request, pk):
+    """
+    Permite reenviar/reagendar um aviso antigo ou expirado para uma nova data selecionada no calendário.
+    Pode duplicar o registro histórico ou atualizar as datas existentes.
+    """
+    try:
+        aviso = Aviso.objects.get(pk=pk)
+    except Aviso.DoesNotExist:
+        return Response({"error": "Aviso não encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+    nova_data_inicio = request.data.get("data_inicio")
+    nova_data_fim = request.data.get("data_fim") or nova_data_inicio
+    duplicar_val = request.data.get("duplicar")
+    if isinstance(duplicar_val, bool):
+        duplicar = duplicar_val
+    elif isinstance(duplicar_val, str):
+        duplicar = duplicar_val.lower() in ["true", "1"]
+    else:
+        duplicar = False
+
+    if not nova_data_inicio:
+        return Response({"error": "A nova data programada é obrigatória."}, status=status.HTTP_400_BAD_REQUEST)
+
+    if duplicar:
+        novo_aviso = Aviso.objects.create(
+            titulo=request.data.get("titulo", aviso.titulo),
+            conteudo=request.data.get("conteudo", aviso.conteudo),
+            data_inicio=nova_data_inicio,
+            data_fim=nova_data_fim,
+            criado_por=request.user,
+            ativo=True
+        )
+        return Response(AvisoSerializer(novo_aviso).data, status=status.HTTP_201_CREATED)
+    else:
+        aviso.data_inicio = nova_data_inicio
+        aviso.data_fim = nova_data_fim
+        if "titulo" in request.data:
+            aviso.titulo = request.data["titulo"]
+        if "conteudo" in request.data:
+            aviso.conteudo = request.data["conteudo"]
+        aviso.ativo = True
+        aviso.save()
+        return Response(AvisoSerializer(aviso).data)
+

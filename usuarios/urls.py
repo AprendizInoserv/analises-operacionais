@@ -15,4 +15,8 @@ urlpatterns = [
     path("api/roles/<int:group_id>/permissions/", views.role_permissions_update, name="role_permissions_update"),
     path("api/recuperar-senha/", views.api_recuperar_senha, name="api_recuperar_senha"),
     path("api/redefinir-senha/", views.api_redefinir_senha, name="api_redefinir_senha"),
+    path("api/avisos/hoje/", views.avisos_hoje_api, name="avisos_hoje"),
+    path("api/avisos/", views.avisos_list_create_api, name="avisos_list_create"),
+    path("api/avisos/<int:pk>/", views.aviso_detail_api, name="aviso_detail"),
+    path("api/avisos/<int:pk>/reenviar/", views.aviso_reenviar_api, name="aviso_reenviar"),
 ]

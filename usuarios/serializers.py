@@ -1,7 +1,7 @@
 from django.contrib.auth.models import User, Group
 from rest_framework import serializers
 from .constants import ADMINISTRADOR_ROLE, GESTAO_ROLE, APRENDIZ_ROLE
-from .models import RolePermission
+from .models import RolePermission, Aviso
 
 class RolePermissionSerializer(serializers.ModelSerializer):
     """
@@ -145,3 +145,34 @@ class UsuarioCreateSerializer(serializers.ModelSerializer):
         )
         user.groups.add(group)
         return user
+
+
+class AvisoSerializer(serializers.ModelSerializer):
+    """
+    Serializer para o modelo Aviso, formatando o nome do criador e o status dinâmico.
+    """
+    criado_por_nome = serializers.SerializerMethodField()
+    status = serializers.ReadOnlyField(source="status_atual")
+
+    class Meta:
+        model = Aviso
+        fields = [
+            "id",
+            "titulo",
+            "conteudo",
+            "data_inicio",
+            "data_fim",
+            "criado_por",
+            "criado_por_nome",
+            "ativo",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "criado_por", "created_at", "updated_at"]
+
+    def get_criado_por_nome(self, obj):
+        if obj.criado_por:
+            nome_completo = f"{obj.criado_por.first_name} {obj.criado_por.last_name}".strip()
+            return nome_completo or obj.criado_por.username
+        return "Administrador"

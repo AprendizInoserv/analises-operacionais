@@ -30,6 +30,7 @@ const TestesPromocao = lazy(() => import('./pages/TestesPromocao'));
 const Ausencias = lazy(() => import('./pages/Ausencias'));
 const GestaoFaltas = lazy(() => import('./pages/GestaoFaltas'));
 const ButantaPage = lazy(() => import('./pages/ButantaPage'));
+const Avisos = lazy(() => import('./pages/Avisos'));
 
 
 /**
@@ -232,6 +233,16 @@ function App() {
               element={
                 permissions.usuarios?.view ? (
                   <Usuarios />
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              } 
+            />
+            <Route 
+              path="/avisos" 
+              element={
+                role?.toLowerCase() === 'administrador' ? (
+                  <Avisos />
                 ) : (
                   <Navigate to="/" replace />
                 )

@@ -21,6 +21,8 @@ interface PremiosTableProps {
   currentPage: number;
   totalPages: number;
   setCurrentPage: (page: number) => void;
+  onExportarExcel?: () => void;
+  isExporting?: boolean;
 }
 
 // Retorna o badge estilizado de acordo com o status
@@ -79,6 +81,8 @@ export default function PremiosTable({
   currentPage,
   totalPages,
   setCurrentPage,
+  onExportarExcel,
+  isExporting = false,
 }: PremiosTableProps) {
   return (
     <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-xs shadow-sm overflow-hidden">
@@ -88,6 +92,22 @@ export default function PremiosTable({
           <FileSpreadsheet className="h-4 w-4 text-purple-500" />
           Detalhamento das Solicitações de Prêmios
         </h3>
+        {onExportarExcel && (
+          <button
+            type="button"
+            onClick={onExportarExcel}
+            disabled={loading || premios.length === 0 || isExporting}
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-2 border border-emerald-600/30 dark:border-emerald-500/30 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Exportar prêmios filtrados para Excel (.xlsx)"
+          >
+            {isExporting ? (
+              <Loader2 className="h-4 w-4 animate-spin text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            )}
+            <span>{isExporting ? 'Exportando...' : 'Exportar para Excel'}</span>
+          </button>
+        )}
       </div>
 
       <div className="overflow-x-auto">

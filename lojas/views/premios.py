@@ -1,3 +1,7 @@
+import datetime
+from io import BytesIO
+import pandas as pd
+from django.http import HttpResponse
 from django.db.models import Sum, Count, Q
 from operator import or_
 from functools import reduce
@@ -15,30 +19,28 @@ class PremioPaginacao(PageNumberPagination):
     page_size_query_param = "page_size"
     max_page_size = 100
 
-@api_view(["GET"])
-@permission_classes([IsAuthenticated, IsAdministrador])
-def premios_list_api(request):
+def _filtrar_premios_queryset(request):
     """
-    Retorna a listagem detalhada de prêmios com suporte a filtros e paginação,
-    além de agregar estatísticas e dados estruturados para renderização de gráficos do BI.
-
-    Docstring explicativa: Esta view realiza a consulta de prêmios no banco de dados,
-    aplica os filtros dinâmicos selecionados pelo usuário no frontend (período, loja, UF,
-    supervisor, coordenador, status, tipo de prêmio, roteiro e tipo de pedido) e
-    calcula as métricas financeiras consolidadas (Valor Gasto, Quantidade e Preço Médio).
+    Aplica os filtros de requisição HTTP sobre o queryset de Prêmios,
+    otimizando os relacionamentos com Loja, Coordenador e Supervisor,
+    e excluindo lojas inativas.
     """
-    # Por que existe: Exclui lojas inativas para não distorcer as análises e o painel operacional de prêmios.
-    queryset = Premio.objects.all().select_related("loja", "coordenador", "supervisor").exclude(loja__status="INATIVA")
+    queryset = (
+        Premio.objects.all()
+        .select_related("loja", "coordenador", "supervisor")
+        .exclude(loja__status="INATIVA")
+    )
+    params = getattr(request, "query_params", request.GET)
 
     # Filtro de Período (separado por vírgula, ex: 202605)
-    periodo_val = request.query_params.get("period")
+    periodo_val = params.get("period")
     if periodo_val:
         periodos = [p.strip() for p in periodo_val.split(",") if p.strip()]
         if periodos:
             queryset = queryset.filter(period__in=periodos)
 
     # Filtro de Loja Física
-    loja_val = request.query_params.get("loja")
+    loja_val = params.get("loja")
     if loja_val:
         lojas_ids = [l.strip() for l in loja_val.split(",") if l.strip()]
         if lojas_ids:
@@ -52,21 +54,21 @@ def premios_list_api(request):
             queryset = queryset.filter(q_obj)
 
     # Filtro de Status
-    status_val = request.query_params.get("status")
+    status_val = params.get("status")
     if status_val:
         status_list = [s.strip().upper() for s in status_val.split(",") if s.strip()]
         if status_list:
             queryset = queryset.filter(status__in=status_list)
 
     # Filtro de Tipo de Prêmio (verb_name)
-    verb_val = request.query_params.get("verb_name")
+    verb_val = params.get("verb_name")
     if verb_val:
         verbs = [v.strip() for v in verb_val.split(",") if v.strip()]
         if verbs:
             queryset = queryset.filter(verb_name__in=verbs)
 
     # Filtro de Supervisor do Prêmio
-    supervisor_val = request.query_params.get("supervisor")
+    supervisor_val = params.get("supervisor")
     if supervisor_val:
         supervisores = [s.strip() for s in supervisor_val.split(",") if s.strip()]
         if supervisores:
@@ -80,7 +82,7 @@ def premios_list_api(request):
             queryset = queryset.filter(q_obj)
 
     # Filtro de Coordenador do Prêmio
-    coordenador_val = request.query_params.get("coordenador")
+    coordenador_val = params.get("coordenador")
     if coordenador_val:
         coordenadores = [c.strip() for c in coordenador_val.split(",") if c.strip()]
         if coordenadores:
@@ -94,7 +96,7 @@ def premios_list_api(request):
             queryset = queryset.filter(q_obj)
 
     # Filtro de UF do Prêmio
-    uf_val = request.query_params.get("uf")
+    uf_val = params.get("uf")
     if uf_val:
         ufs = [u.strip().upper() for u in uf_val.split(",") if u.strip()]
         if ufs:
@@ -108,27 +110,43 @@ def premios_list_api(request):
             queryset = queryset.filter(q_obj)
 
     # Filtro de Tipo de Pedido (order_type: SISTEMA, MANUAL)
-    order_type_val = request.query_params.get("order_type")
+    order_type_val = params.get("order_type")
     if order_type_val:
         order_types = [ot.strip().upper() for ot in order_type_val.split(",") if ot.strip()]
         if order_types:
             queryset = queryset.filter(order_type__in=order_types)
 
     # Filtro de Roteiro (roteiro: FOLHA, VEX)
-    roteiro_val = request.query_params.get("roteiro")
+    roteiro_val = params.get("roteiro")
     if roteiro_val:
         roteiros = [r.strip().upper() for r in roteiro_val.split(",") if r.strip()]
         if roteiros:
             queryset = queryset.filter(roteiro__in=roteiros)
 
     # Busca livre (centro de custo ou tipo de prêmio)
-    search_query = request.query_params.get("search")
+    search_query = params.get("search")
     if search_query:
         queryset = queryset.filter(
             cost_center_name__icontains=search_query
         ) | queryset.filter(
             verb_name__icontains=search_query
         )
+
+    return queryset
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, IsAdministrador])
+def premios_list_api(request):
+    """
+    Retorna a listagem detalhada de prêmios com suporte a filtros e paginação,
+    além de agregar estatísticas e dados estruturados para renderização de gráficos do BI.
+
+    Docstring explicativa: Esta view realiza a consulta de prêmios no banco de dados,
+    aplica os filtros dinâmicos selecionados pelo usuário no frontend (período, loja, UF,
+    supervisor, coordenador, status, tipo de prêmio, roteiro e tipo de pedido) e
+    calcula as métricas financeiras consolidadas (Valor Gasto, Quantidade e Preço Médio).
+    """
+    queryset = _filtrar_premios_queryset(request)
 
     # 1. Cálculo de KPIs
     # Quantidade total de solicitações
@@ -423,4 +441,64 @@ def premios_filtro_opcoes_api(request):
         "lojas": lojas_lista,
         "periodos": periodos_lista
     })
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, IsAdministrador])
+def premios_exportar_excel(request):
+    """
+    Exporta a listagem completa de solicitações de prêmios respeitando os filtros aplicados
+    para um arquivo Excel (.xlsx).
+    
+    Colunas incluídas:
+    ID | Tipo de Prêmio | Centro de Custo | Loja | Coordenador | Supervisor | UF | Período | Origem | Roteiro | Valor (R$) | Status
+    """
+    queryset = _filtrar_premios_queryset(request).order_by("-period", "id")
+
+    linhas_excel = []
+    for item in queryset:
+        loja_nome = item.loja.nome_referencia if item.loja else "Não vinculada"
+        coord_nome = item.coordenador.nome if item.coordenador else (item.loja.coordenador.nome if (item.loja and item.loja.coordenador) else "-")
+        sup_nome = item.supervisor.nome if item.supervisor else (item.loja.supervisor.nome if (item.loja and item.loja.supervisor) else "-")
+
+        periodo_fmt = item.period
+        if periodo_fmt and len(periodo_fmt) == 6:
+            periodo_fmt = f"{periodo_fmt[4:6]}/{periodo_fmt[0:4]}"
+
+        linhas_excel.append({
+            "ID": str(item.id),
+            "Tipo de Prêmio": item.verb_name,
+            "Centro de Custo": item.cost_center_name,
+            "Loja": loja_nome,
+            "Coordenador": coord_nome,
+            "Supervisor": sup_nome,
+            "UF": item.uf or "",
+            "Período": periodo_fmt,
+            "Origem": item.order_type,
+            "Roteiro": item.roteiro,
+            "Valor (R$)": float(item.reward_value) if item.reward_value is not None else 0.0,
+            "Status": item.status,
+        })
+
+    df = pd.DataFrame(linhas_excel)
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Prêmios")
+        worksheet = writer.sheets["Prêmios"]
+        for col in worksheet.columns:
+            max_len = max(len(str(cell.value or "")) for cell in col)
+            col_letter = col[0].column_letter
+            worksheet.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+    buffer.seek(0)
+    data_hoje = datetime.date.today().strftime("%d_%m_%Y")
+    filename = f"premios_{data_hoje}.xlsx"
+
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
 

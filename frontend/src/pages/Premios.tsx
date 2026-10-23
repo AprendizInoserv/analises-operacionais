@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { AlertCircle, FileText } from 'lucide-react';
-import api from '../api/client';
+import { AlertCircle, FileText, FileSpreadsheet, Loader2 } from 'lucide-react';
+import api, { getBackendPort } from '../api/client';
 import PremiosFilter from '../components/Premios/PremiosFilter';
 import PremiosTable, { type PremioData } from '../components/Premios/PremiosTable';
 import PremiosKPIs from '../components/Premios/PremiosKPIs';
@@ -51,6 +51,57 @@ export default function Premios() {
   const lastQueryId = useRef(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [fetchTrigger, setFetchTrigger] = useState(0);
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Exportar todas as solicitações de prêmios filtradas para Excel (.xlsx)
+  const handleExportarExcel = async () => {
+    try {
+      setIsExporting(true);
+      const params = new URLSearchParams();
+      if (filtroPeriodo) params.append('period', filtroPeriodo);
+      if (filtroLoja) params.append('loja', filtroLoja);
+      if (filtroStatus) params.append('status', filtroStatus);
+      if (filtroVerbName) params.append('verb_name', filtroVerbName);
+      if (filtroSupervisor) params.append('supervisor', filtroSupervisor);
+      if (filtroCoordenador) params.append('coordenador', filtroCoordenador);
+      if (filtroUf) params.append('uf', filtroUf);
+      if (filtroOrderType) params.append('order_type', filtroOrderType);
+      if (filtroRoteiro) params.append('roteiro', filtroRoteiro);
+
+      const response = await api.get(`/premios/exportar/?${params.toString()}`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      const dataHoje = new Date().toISOString().slice(0, 10);
+      link.setAttribute('download', `premios_${dataHoje}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+      console.error('Erro ao exportar prêmios para Excel:', err);
+      // Fallback via URL direta
+      const params = new URLSearchParams();
+      if (filtroPeriodo) params.append('period', filtroPeriodo);
+      if (filtroLoja) params.append('loja', filtroLoja);
+      if (filtroStatus) params.append('status', filtroStatus);
+      if (filtroVerbName) params.append('verb_name', filtroVerbName);
+      if (filtroSupervisor) params.append('supervisor', filtroSupervisor);
+      if (filtroCoordenador) params.append('coordenador', filtroCoordenador);
+      if (filtroUf) params.append('uf', filtroUf);
+      if (filtroOrderType) params.append('order_type', filtroOrderType);
+      if (filtroRoteiro) params.append('roteiro', filtroRoteiro);
+      const url = `http://${window.location.hostname}:${getBackendPort()}/premios/exportar/?${params.toString()}`;
+      window.open(url, '_blank');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Função para lidar com erros passados pelos filhos
   const handleFilterError = useCallback((msg: string | null) => {
@@ -135,7 +186,21 @@ export default function Premios() {
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-50">Desempenho de Prêmios Pagos</h1>
           <p className="text-sm text-neutral-500 font-medium">Auditoria e conciliação financeira de premiações de funcionários</p>
         </div>
-        <div className="flex items-center">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleExportarExcel}
+            disabled={loadingData || isExporting}
+            className="flex items-center gap-2 px-3.5 py-2 border border-emerald-600/30 dark:border-emerald-500/30 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-medium rounded-lg text-sm shadow-xs transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Exportar prêmios filtrados para Excel (.xlsx)"
+          >
+            {isExporting ? (
+              <Loader2 className="h-4 w-4 animate-spin text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            )}
+            <span>{isExporting ? 'Exportando...' : 'Exportar Excel'}</span>
+          </button>
           <button
             onClick={() => {
               const params = new URLSearchParams();
@@ -216,6 +281,8 @@ export default function Premios() {
           currentPage={currentPage}
           totalPages={totalPages}
           setCurrentPage={setCurrentPage}
+          onExportarExcel={handleExportarExcel}
+          isExporting={isExporting}
         />
       </main>
     </div>

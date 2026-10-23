@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 title Menu de Emergencia - Analises Operacionais
-color 1F
+color 0A
 
 :MENU
 cls
@@ -101,12 +101,6 @@ echo [1/4] Realizando copia de seguranca preventiva do banco de dados...
 cd /d "%~dp0."
 call venv\Scripts\activate.bat
 python manage.py backup_db
-if errorlevel 1 (
-    echo [AVISO] Falha ao criar backup preventivo.
-    echo Deseja continuar com a atualizacao mesmo assim? (S/N)
-    set /p CONFIRMA="Opcao: "
-    if /i not "%CONFIRMA%"=="S" goto MENU
-)
 echo.
 
 echo [2/4] Verificando repositorio remoto Git...
